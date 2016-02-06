@@ -1,4 +1,6 @@
 @echo off
+mode con:cols=170 lines=20
+@title Ethereum Mining - Initial testnet Blockchain
 REM ##################################################
 REM ## Initiates the Geth console with the local test block etc.  ##
 REM ##                                                                                                    ##
@@ -14,6 +16,3 @@ REM ## Sets up a local test Blockchain to use for development
 
 @echo on
 geth --mine -rpccorsdomain "*" --ipcapi "admin,eth,miner" --rpcapi "eth,web3" --networkid 9876 --datadir ../dataDir -maxpeers 5 --minerthreads 1 console
-
-
-REM geth attach modules: admin:1.0 eth:1.0 miner:1.0

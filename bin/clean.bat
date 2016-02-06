@@ -12,9 +12,4 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-mkdir ..\dataDir
-@echo on
-geth --genesis ../genesis/genesis_block.json --datadir ../dataDir --networkid 9876 --nodiscover --maxpeers 0 --jspath "../conf/BaseAccount.js" js console
-
-REM ## Initialise blockchain with base account
-REM geth --datadir ../dataDir --networkid 9876 --password ../conf/testnet-pwd account new
+RD -S ..\dataDir

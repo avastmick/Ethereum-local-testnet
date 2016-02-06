@@ -1,4 +1,6 @@
 @echo off
+mode con:cols=240 lines=20
+@title Ethereum testnet console
 REM ##################################################
 REM ## Initiates the Geth console with the local test block etc.  ##
 REM ##                                                                                                    ##
@@ -12,4 +14,4 @@ set PATH=%PATH%;%GETH-DIR%
 
 REM ## Sets up a local test Blockchain to use for development
 
-geth --networkid 9876 --datadir ../dataDir console 
+geth --networkid 9876 --datadir ../dataDir console

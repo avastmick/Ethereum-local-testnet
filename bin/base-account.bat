@@ -14,7 +14,7 @@ set PATH=%PATH%;%GETH-DIR%
 
 mkdir ..\dataDir
 @echo on
-geth --genesis ../genesis/genesis_block.json --datadir ../dataDir --networkid 9876 --nodiscover --maxpeers 0 --jspath "../conf/BaseAccount.js" js console
+geth  --datadir ../dataDir --networkid 9876 --jspath "../conf/BaseAccount.js" js
 
 REM ## Initialise blockchain with base account
 REM geth --datadir ../dataDir --networkid 9876 --password ../conf/testnet-pwd account new

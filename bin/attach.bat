@@ -1,4 +1,6 @@
 @echo off
+mode con:cols=170 lines=20
+@title Ethereum testnet CLI
 REM ##################################################
 REM ## Initiates the Geth console with the local test block etc.  ##
 REM ##                                                                                                    ##
