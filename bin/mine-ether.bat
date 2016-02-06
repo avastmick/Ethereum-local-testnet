@@ -10,6 +10,10 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-mkdir ..\dataDir
+REM ## Sets up a local test Blockchain to use for development
+
 @echo on
-geth --genesis ../genesis/genesis_block.json --datadir ../dataDir --networkid 9876 --nodiscover --maxpeers 0 console
+geth --mine -rpccorsdomain "*" --ipcapi "admin,eth,miner" --rpcapi "eth,web3" --networkid 9876 --datadir ../dataDir -maxpeers 5 --minerthreads 1 console
+
+
+REM geth attach modules: admin:1.0 eth:1.0 miner:1.0

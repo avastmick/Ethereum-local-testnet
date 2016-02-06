@@ -10,6 +10,6 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-mkdir ..\dataDir
-@echo on
-geth --genesis ../genesis/genesis_block.json --datadir ../dataDir --networkid 9876 --nodiscover --maxpeers 0 console
+REM ## Sets up a local test Blockchain to use for development
+
+geth --networkid 9876 --datadir ../dataDir console 
