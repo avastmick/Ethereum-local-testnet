@@ -19,4 +19,6 @@ EXPOSE 8545
 EXPOSE 30303
 
 # Just going to slam this into bash until I work out how to pre-configure in Docker file
+# Steps:
+# * Create a set-up shell script to test the set up (do not commit to Docker!)
 ENTRYPOINT ["/usr/bin/bash"]
