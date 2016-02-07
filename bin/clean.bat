@@ -12,4 +12,7 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-RD -S ..\dataDir
+set DATA-DIR=C:\Users\Mick\Documents\GitHub\Ethereum-local-testnet\dataDir\chaindata
+@echo on
+echo %DATA-DIR%
+REM rmdir -S -Q %DATA-DIR%

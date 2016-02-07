@@ -14,7 +14,7 @@ set PATH=%PATH%;%GETH-DIR%
 
 mkdir ..\dataDir
 @echo on
-geth  --datadir ../dataDir --networkid 9876 --jspath "../conf/BaseAccount.js" js
+geth  --datadir ../dataDir --networkid 9876 --jspath "../conf/BaseAccount.js" --exec js
 
 REM ## Initialise blockchain with base account
 REM geth --datadir ../dataDir --networkid 9876 --password ../conf/testnet-pwd account new
