@@ -1,6 +1,6 @@
 @echo off
 mode con:cols=170 lines=20
-@title Ethereum Mining - Initial testnet Blockchain
+@title Initialise Ethereum testnet Blockchain
 REM ##################################################
 REM ## Initiates the Geth console with the local test block etc.  ##
 REM ##                                                                                                    ##
@@ -12,7 +12,7 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-REM ## Sets up a local test Blockchain to use for development
-
+set DATA-DIR=C:\Users\Mick\Documents\GitHub\Ethereum-local-testnet\**\data\chaindata
 @echo on
-geth --mine -rpccorsdomain "*" --ipcapi "admin,eth,miner" --rpcapi "eth,web3" --networkid 9876 --datadir ../dataDir -maxpeers 5 --minerthreads 1 console
+echo %DATA-DIR%
+REM rmdir -S -Q %DATA-DIR%

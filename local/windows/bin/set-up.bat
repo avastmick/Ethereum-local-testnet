@@ -12,6 +12,6 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-mkdir ..\dataDir
+mkdir ..\data
 @echo on
-geth --genesis ../genesis/genesis_block.json --datadir ../dataDir --networkid 9876 --nodiscover --maxpeers 0 console
+geth --genesis ../genesis/genesis_block.json --datadir ../data --networkid 9876 --nodiscover --maxpeers 0 console

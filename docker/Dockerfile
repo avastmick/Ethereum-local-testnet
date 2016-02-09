@@ -8,6 +8,9 @@ RUN apt-get update
 RUN apt-get upgrade -q -y
 RUN apt-get dist-upgrade -q -y
 
+# Install bash
+RUN apt-get install -q -y bash
+
 # Install Ethereum
 RUN apt-get install -q -y software-properties-common
 RUN add-apt-repository ppa:ethereum/ethereum

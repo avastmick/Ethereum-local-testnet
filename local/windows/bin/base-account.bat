@@ -12,7 +12,9 @@ REM ## cinst -y geth-stable
 set GETH-DIR=C:\ProgramData\chocolatey\lib\geth-stable\tools\
 set PATH=%PATH%;%GETH-DIR%
 
-set DATA-DIR=C:\Users\Mick\Documents\GitHub\Ethereum-local-testnet\dataDir\chaindata
+mkdir ..\data
 @echo on
-echo %DATA-DIR%
-REM rmdir -S -Q %DATA-DIR%
+geth  --datadir ../data --networkid 9876 --jspath "../conf/BaseAccount.js" --exec js
+
+REM ## Initialise blockchain with base account
+REM geth --datadir ../data --networkid 9876 --password ../conf/testnet-pwd account new
