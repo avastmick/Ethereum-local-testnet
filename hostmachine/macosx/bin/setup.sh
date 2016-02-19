@@ -7,6 +7,7 @@
 
 # Assumption: clean install - i.e. no default blockchain
 # Check location of work, should be in a localised datadir
+# 
 
 # Need to do these in forked processes
 
