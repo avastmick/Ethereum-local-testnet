@@ -1,6 +1,6 @@
 # Fresh Install to create a local testnet
 
-## Node 1
+## Node 1 - An Ubuntu guest VM (server)
 
 Set up user and su:
 ````
@@ -38,27 +38,32 @@ echo 'testpwd-01' > conf/testnet-pwd
 ````
 Then:
 ````
-echo 'geth --genesis ./genesis/genesis_block.json --networkid 1973 --port 30801 --rpcport 8901 --nodiscover --maxpeers 0' > 1_create_local_testnet && chmod u+x 1_create_local_testnet
+echo 'geth --genesis ./genesis/genesis_block.json --networkid 1973 --port 30801 --rpcport 8901 --nodiscover' > create_local_testnet && chmod u+x create_local_testnet
 ````
 Then create the base account and coinbase:
 ````
-echo 'geth --networkid 1973 --port 30801 --rpcport 8901 --password ./conf/testnet-pwd account new' > 2_create_local_coinbase && chmod u+x 2_create_local_coinbase
+echo 'geth --networkid 1973 --port 30801 --rpcport 8901 --password ./conf/testnet-pwd account new' > create_local_coinbase && chmod u+x create_local_coinbase
 ````
 Then: unlock the account
 ````
-echo 'geth --password ../../conf/testnet-pwd --unlock 0  --networkid 1973 --port 30801 --rpcport 8901 --rpccorsdomain localhost' > 3_unlock_local_account && chmod u+x 3_unlock_local_account
+echo 'geth --password ./conf/testnet-pwd --unlock 0  --networkid 1973 --port 30801 --rpcport 8901' > unlock_local_account && chmod u+x unlock_local_account
 ````
 
 Then: start the console and pipe the logs for tailing in other terminal:
 ````
-echo 'geth --networkid 1973 --port 30801 -rpc --rpcport 8901 --rpcapi "db,eth,net,web3" console 2>> eth.log' > start_local_console && chmod u+x start_local_console
+echo 'geth --networkid 1973 --port 30801 --rpc --rpcaddr "192.168.99.100" --rpcport 8901 --rpcapi "admin,db,eth,net,web3" --rpccorsdomain "http://192.168.99.100:8901" --nodiscover console 2>> eth.log' > start_local_console && chmod u+x start_local_console
 ````
 Then: add mining
 ````
-echo 'geth --mine -rpccorsdomain "*" --ipcapi "admin,eth,miner" --rpcapi "db,eth,net,web3" --networkid 1973 --port 30801 --rpcport 8901 -maxpeers 0 --minerthreads 1 console 2>> eth.log' > mine_local_testnet && chmod u+x mine_local_testnet
+echo 'geth --mine --rpccorsdomain "http://localhost:8901" --ipcapi "admin,eth,miner" --rpcapi "db,eth,net,web3" --networkid 1973 --port 30801 --rpcport 8901 --nodiscover --minerthreads 1 console 2>> eth.log' > mine_local_testnet && chmod u+x mine_local_testnet
 ````
 
 Then: create a clean script
 ````
 echo 'rm -rf .ethereum && rm -rf .ethash && rm eth.log' > clean_local && chmod u+x clean_local
+````
+Finally, to make this easier, ensure that SSH is enabled on guest and port forwarding is set-up for all required ports. Then everything can be driven from the host machine and use the nicer tools there:
+````
+// Set up SSH port forwarding IF USING NAT - though that will only allow local guest usage of node CLI / RPC
+VBoxManage modifyvm "[THE NAME OF THE GUEST]" --natpf1 "ssh,tcp,,[SOMEUNUSED PORT],,22"
 ````
