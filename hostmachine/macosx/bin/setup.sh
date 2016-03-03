@@ -7,7 +7,7 @@
 
 # Assumption: clean install - i.e. no default blockchain
 # Check location of work, should be in a localised datadir
-# 
+#
 
 # Need to do these in forked processes
 
@@ -34,10 +34,11 @@ geth --password ../../conf/testnet-pwd --unlock 0 --datadir ../../data --network
 
 # If all good to here, start up a miner to create blocks on the new blockchain
 # geth --mine -rpccorsdomain "*" --ipcapi "admin,eth,miner" --rpcapi "eth,web3" --networkid 1973 --port 30801 --rpcport 8901 --datadir ../../data -maxpeers 5 --minerthreads 1 console
-# Or just attach to console and then run > miner.start(4)
+# Or just attach to console and then run > miner.start(1)
 
 # Run the console:
-#geth --datadir ../../data --networkid 1973 --port 30801 --rpcport 8901 console
+# Make sure that the rpc server is started and the APIs enabled!
+geth --datadir ../../data --networkid 1973 --port 30801 -rpc --rpcport 8901 --rpcapi "db,eth,net,web3" console 2>> eth.log
 
 # Attach to running console
 #geth --datadir ../../data --networkid 1973 --port 30801 --rpcport 8901 attach
