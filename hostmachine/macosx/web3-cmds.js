@@ -10,7 +10,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"net_listening","params":[],"id":
 curl -X POST --data '{"jsonrpc":"2.0","method":"eth_coinbase","params":[],"id":64}' http://192.168.99.100:8901
 // List accounts
 curl -X POST --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":1}' http://192.168.99.100:8901
-// Can also use the unix cmd
+// Can also use the unix cmd if on local machine
 echo '{"jsonrpc":"2.0","method":"modules","params":[],"id":1}' | nc -U .ethereum/geth.ipc
 
 
@@ -27,6 +27,7 @@ web3.fromWei(eth.getBalance(eth.coinbase), "ether")
 
 // Unlock accounts
 //personal.unlockAccount(address, password)
+//"0x6ae7f2f4d7507886bb23754c4b4398759f459c17", "0xcf879ad8d4c849b924c6a856697700b486e5c4fc", "0x969b6280a9759db11a47c77c7926167b521d6059"
 
-personal.unlockAccount("6ecb7876d6b473e2267043d5324f4d0a0fc5c51c", "testpassword1")
-personal.unlockAccount("4ca216f32c4523a2f88e6a6b5688492c46b7adff", "testpassword1")
+personal.unlockAccount("0x6ae7f2f4d7507886bb23754c4b4398759f459c17", "testpwd-01")
+personal.unlockAccount("0xcf879ad8d4c849b924c6a856697700b486e5c4fc", "testpwd-01")
