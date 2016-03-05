@@ -4,21 +4,23 @@
 # 1. TODO Checks to see if Ethereum is installed (if not then install)
 # 2. TODO Creates a conf file for the genesis.json and password files
 # 3. Creates a set of scripts that allows the creation and teardown of a single Node
-# 4. TODO Creates a script to duplicatethe initial node and create a cluster
+# 4. TODO Creates a script to duplicate the initial node and create a cluster
 # Help
 function usage {
     echo Usage:
-    echo testnet [param]
+    echo    testnet [param]
     echo params:
-    echo --create : Creates a new testnet node
-    echo --addacc : Creates a account on the node. The first account is the coinbase account.
-    echo --unlockacc [account_no] : Unlocks the account given
-    echo --clean : Cleans the installation back to base account
-    echo --help -h : This message
+    echo    --create : Creates a new testnet node
+    echo    --addacc : Creates a account on the node. The first account is the coinbase account.
+    echo    --unlockacc [account_no] : Unlocks the account given
+    echo    --clean : Cleans the installation back to base account
+    echo    --help -h : This message
 }
 # Create
 function create {
     echo creating local testnet...
+    # Create the genesis block json and password file in conf
+    # Create the data dir (in tmp)
     geth --genesis ./genesis/genesis_block.json --networkid 1973 --port 30801 --rpcport 8901 --nodiscover 2>> eth.log &;
     echo Done. See eth.log for details
 }
@@ -35,7 +37,7 @@ function unlockacc {
         exit
     else
         echo unlocking $2
-        
+
     fi
 }
 # Clean
