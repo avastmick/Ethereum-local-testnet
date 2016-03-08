@@ -1,4 +1,4 @@
-# Create a local testnet
+# Create a local testnet via manual-shmanual and point scripts
 
 ## Node 1 - An Ubuntu guest VM (server)
 

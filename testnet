@@ -83,7 +83,7 @@ function create {
     configure
     # Create the genesis block json and password file in conf
     echo creating local testnet...
-    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> eth.log &
+    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log &
     echo Done. See eth.log for details
 }
 # Add account
@@ -112,11 +112,7 @@ function unlockacc {
 }
 # Clean
 function clean {
-    if [[ $OSTYPE == darwin* ]]; then # Is MacOS
-        rm -rf ~/Library/Ethereum && rm -rf .ethash && rm eth.log
-    else # Is Linux
-        rm -rf .ethereum && rm -rf .ethash && rm eth.log
-    fi
+    rm -rf $data_dir
 }
 if [ -z "$1" ]; then
     usage
