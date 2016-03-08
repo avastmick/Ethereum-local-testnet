@@ -10,8 +10,9 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"net_listening","params":[],"id":
 curl -X POST --data '{"jsonrpc":"2.0","method":"eth_coinbase","params":[],"id":64}' http://192.168.99.100:8901
 // List accounts
 curl -X POST --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":1}' http://192.168.99.100:8901
-// Can also use the unix cmd if on local machine
-echo '{"jsonrpc":"2.0","method":"modules","params":[],"id":1}' | nc -U .ethereum/geth.ipc
+
+// Unlock accounts
+curl -X POST --data '{"jsonrpc":"2.0","method":"personal_unlockAccount","params":[eth.accounts[0]],"id":1}' http://192.168.99.100:8901
 
 
 // Get the enode url to construct the actual enode URL
@@ -23,11 +24,7 @@ admin.nodeInfo
 // So for this example the ?discport=0 as we set the --nodiscover flag
 
 // Ether held by default account (accounts[0])
-web3.fromWei(eth.getBalance(eth.coinbase), "ether")
+web3.fromWei(eth.getBalance(eth.accounts[0]), "ether")
 
-// Unlock accounts
-//personal.unlockAccount(address, password)
-//"0x6ae7f2f4d7507886bb23754c4b4398759f459c17", "0xcf879ad8d4c849b924c6a856697700b486e5c4fc", "0x969b6280a9759db11a47c77c7926167b521d6059"
-
-personal.unlockAccount("0x6ae7f2f4d7507886bb23754c4b4398759f459c17", "testpwd-01")
-personal.unlockAccount("0xcf879ad8d4c849b924c6a856697700b486e5c4fc", "testpwd-01")
+// Set up a means of pre-loading the js cmds:
+// loadScript("/home/testnet/conf/cmds.js")

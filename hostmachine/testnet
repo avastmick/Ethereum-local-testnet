@@ -4,7 +4,20 @@
 # 1. TODO Checks to see if Ethereum is installed (if not then install)
 # 2. TODO Creates a conf file for the genesis.json and password files
 # 3. Creates a set of scripts that allows the creation and teardown of a single Node
-# 4. TODO Creates a script to duplicate the initial node and create a cluster
+# 4. TODO Creates a script to duplicate the initial node across multiple local accounts and create a cluster managed from a master account. Mining will occur at one designated node; transactions will be commited against a separated initial node.
+
+# Add some variables
+# networkid
+networkid=1973
+# IPC port
+ipc_port=30801
+# RPC port
+rpc_port=8901
+# data_dir
+data_dir=/tmp/$networkid
+# conf
+conf=./conf
+
 # Help
 function usage {
     echo Usage:
@@ -13,21 +26,78 @@ function usage {
     echo    --create : Creates a new testnet node
     echo    --addacc : Creates a account on the node. The first account is the coinbase account.
     echo    --unlockacc [account_no] : Unlocks the account given
+    echo    --minestart : starts the miner
+    echo    --minestop : stops the miner
     echo    --clean : Cleans the installation back to base account
     echo    --help -h : This message
 }
+# Install Ethereum
+function install {
+    if [[ $OSTYPE == darwin* ]]; then # This is MacOS, so Brew
+        echo Installing using brew
+        brew tap ethereum/ethereum &&
+        brew install ethereum
+    elif [[ $OSTYPE == linux-gnu ]]; then # This is Ubuntu, so ...
+        echo Installing using pkg-mgr
+        sudo add-apt-repository ppa:ethereum/ethereum-qt &&
+        sudo add-apt-repository ppa:ethereum/ethereum &&
+        sudo add-apt-repository ppa:ethereum/ethereum-dev &&
+        sudo apt-get update &&
+        sudo apt-get install cpp-ethereum &&
+        sudo apt-get install ethereum
+    else # This is not supported
+        echo Unsupported Operating system
+        exit
+    fi
+}
+function checkEthereum {
+
+    if [ $which geth ] || [ $which eth ] != "" ]; then
+        echo No current installation going to install - as root
+        install
+    else
+        echo Already installed geth
+    fi
+}
+# Configure
+function configure {
+    mkdir conf
+    genesis_block='{
+        "nonce": "0x0000000000000042",
+        "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "difficulty": "0x4000",
+        "alloc": {},
+        "coinbase": "0x0000000000000000000000000000000000000000",
+        "timestamp": "0x00",
+        "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "extraData": "Custom Ethereum Genesis Block for initiating a local test net",
+        "gasLimit": "0xffffffff"
+    }'
+    echo $genesis_block > $conf/genesis_block.json
+    echo 'testpwd-01' > conf/testnet-pwd
+}
 # Create
 function create {
-    echo creating local testnet...
+    echo checking that Ethereum is installed
+    checkEthereum
+    configure
     # Create the genesis block json and password file in conf
-    # Create the data dir (in tmp)
-    geth --genesis ./genesis/genesis_block.json --networkid 1973 --port 30801 --rpcport 8901 --nodiscover 2>> eth.log &;
+    echo creating local testnet...
+    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> eth.log &
     echo Done. See eth.log for details
 }
 # Add account
 function addacc {
     echo Adding account...
-    geth --networkid 1973 --port 30801 --rpcport 8901 --password ./conf/testnet-pwd account new
+    geth --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --password $conf/testnet-pwd account new
+}
+# Starts the miner on the designated node
+function startmining {
+    curl -X POST --data '{"jsonrpc":"2.0","method":"miner_start","params":[1],"id":64}' http://192.168.99.100:8901;
+}
+# Stop the miner on the designated node
+function stopmining {
+    curl -X POST --data '{"jsonrpc":"2.0","method":"miner_stop","params":[1],"id":64}' http://192.168.99.100:8901
 }
 # Unlock account
 # TODO Need to get this working when Geth is already running
@@ -37,18 +107,15 @@ function unlockacc {
         exit
     else
         echo unlocking $2
-
+        geth --password ./conf/testnet-pwd --unlock $2  --networkid 1973 --port 30801 --rpcport 8901
     fi
 }
 # Clean
 function clean {
     if [[ $OSTYPE == darwin* ]]; then # Is MacOS
-    # Just echo for now as this will blow away my live node
-    echo Would delete for Mac
-        # echo "rm -rf ~/Library/Ethereum && rm -rf .ethash && rm eth.log"
+        rm -rf ~/Library/Ethereum && rm -rf .ethash && rm eth.log
     else # Is Linux
-        echo Would delete for Linux
-        # echo "rm -rf .ethereum && rm -rf .ethash && rm eth.log"
+        rm -rf .ethereum && rm -rf .ethash && rm eth.log
     fi
 }
 if [ -z "$1" ]; then
@@ -61,6 +128,10 @@ elif [[ "$1" == "--addacc" ]]; then
     addacc;
 elif [[ "$1" == "--unlockacc" ]]; then
     unlockacc;
+elif [[ "$1" == "--minestart" ]]; then
+    startmining;
+elif [[ "$1" == "--minestop" ]]; then
+    stopmining;
 elif [[ "$1" == "--clean" ]]; then
     clean;
 elif [[ "$1" == "--help" ]]; then

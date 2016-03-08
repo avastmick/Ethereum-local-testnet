@@ -63,7 +63,7 @@ echo 'geth --password ./conf/testnet-pwd --unlock 0  --networkid 1973 --port 308
 
 ### Script to start the console and pipe the logs for tailing in another terminal:
 ````
-echo 'geth --networkid 1973 --port 30801 --rpc --rpcaddr "192.168.99.100" --rpcport 8901 --rpcapi "admin,db,eth,net,web3" --rpccorsdomain "http://192.168.99.100:8901" --nodiscover console 2>> eth.log' > start_local_console && chmod u+x start_local_console
+echo 'geth --networkid 1973 --port 30801 --rpc --rpcaddr "192.168.99.100" --rpcport 8901 --rpcapi "admin,db,eth,net,web3,miner" --rpccorsdomain "http://192.168.99.100:8901" --nodiscover console 2>> eth.log' > start_local_console && chmod u+x start_local_console
 ````
 ### Script to mine the blockchain
 *Though this can be easily done in the console:*
