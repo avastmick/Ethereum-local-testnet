@@ -61,7 +61,8 @@ function checkEthereum {
 }
 # Configure
 function configure {
-    mkdir conf
+    mkdir $conf
+    mkdir $data_dir
     genesis_block='{
         "nonce": "0x0000000000000042",
         "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
