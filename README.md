@@ -7,6 +7,7 @@ The intent is to enable users to quickly set up a clustered node set that allows
 
 ## Warnings and Disclaimers
 Three warnings:
+
 1. Use at your own risk!
 2. Don't use the configurations here to connect to the live Ethereum (Frontier / Homestead) network.
 3. Change the password for initialising the blockchain if you are distributing wider than local, private usage.
