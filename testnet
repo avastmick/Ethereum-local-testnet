@@ -15,9 +15,11 @@ ipc_port=30801
 # RPC port
 rpc_port=8901
 # data_dir
-data_dir=/tmp/$networkid/$node_id
+data_dir=/tmp/$networkid
 # conf
 conf=./conf
+# pid for this node
+pid_file=""
 
 # Help
 function usage {
@@ -25,42 +27,44 @@ function usage {
     echo    testnet [param]
     echo params:
     echo    --create [node_id]: Creates a new testnet node. If within a cluster pass in a unique node_id - default is 0
-    echo    --addacc : Creates a account on the node. The first account is the coinbase account.
-    echo    --unlockacc [account_no] : Unlocks the account given TODO
-    echo    --start : Starts the local test node TODO
-    echo    --stop : Stops the local test node TODO
-    echo    --attach : attaches to a running node
-    echo    --minestart : starts the miner
-    echo    --minestop : stops the miner
-    echo    --clean : Cleans the installation back to base account
+    echo    --addacc [node_id] : Creates a account on the node. The first account is the coinbase account.
+    echo    --unlockacc [account_no] [node_id] : Unlocks the account given TODO
+    echo    --start [node_id] : Starts the local test node TODO
+    echo    --stop [node_id] : Stops the local test node TODO
+    echo    --attach [node_id] : attaches to a running node
+    echo    --minestart [node_id] : starts the miner
+    echo    --minestop [node_id] : stops the miner
+    echo    --cluster : links all local nodes into a cluster
+    echo    --clean [node_id] : Cleans the node installation back to base account
+    echo    --cleanAll : Cleans the whole shebang
     echo    --help -h : This message
 }
 # Install Ethereum
-function install {
-    if [[ $OSTYPE == darwin* ]]; then # This is MacOS, so Brew
-        echo Installing using brew
-        brew tap ethereum/ethereum &&
-        brew install ethereum
-    elif [[ $OSTYPE == linux-gnu ]]; then # This is Ubuntu, so ...
-        echo Installing using pkg-mgr
-        sudo add-apt-repository ppa:ethereum/ethereum-qt &&
-        sudo add-apt-repository ppa:ethereum/ethereum &&
-        sudo add-apt-repository ppa:ethereum/ethereum-dev &&
-        sudo apt-get update &&
-        sudo apt-get install cpp-ethereum &&
-        sudo apt-get install ethereum
+function install-steps {
+    if [[ $OSTYPE == darwin* ]]; then
+        echo You\'re on a Mac, you can install using:
+        echo "brew tap ethereum/ethereum &&"
+        echo "brew install ethereum"
+    elif [[ $OSTYPE == linux-gnu ]]; then
+        echo You\'re on a Ubuntu variant, you can install using:
+        echo "  sudo add-apt-repository ppa:ethereum/ethereum-qt &&"
+        echo "  sudo add-apt-repository ppa:ethereum/ethereum &&"
+        echo "  sudo add-apt-repository ppa:ethereum/ethereum-dev &&"
+        echo "  sudo apt-get update &&"
+        echo "  sudo apt-get install cpp-ethereum &&"
+        echo "  sudo apt-get install ethereum"
     else # This is not supported
-        echo Unsupported Operating system
-        exit
+        echo Sorry, check the Ethereum docs for your Operating system
     fi
+    exit
 }
 function checkEthereum {
 
-    if [ $which geth ] || [ $which eth ] != "" ]; then
-        echo No current installation going to install - as root
-        install
+    if [ hash geth >/dev/null 2>&1 || hash eth >/dev/null 2>&1 ]; then
+        echo No current installation of Ethereum
+        install-steps
     else
-        echo Already installed geth
+        echo Already installed Ethereum, nice! Proceeding...
     fi
 }
 # Configure
@@ -95,30 +99,45 @@ function configure {
 }
 # Create
 function create {
-    echo checking that Ethereum is installed
-    #checkEthereum
-    configure
-    # Create the genesis block json and password file in conf
-    if [ -z "$2" ]; then
+    if [ -z "$1" ]; then
         echo No node_id passed in, using default - $node_id;
     else
-        node_id=$2
+        let node_id=$1
         echo New node will be created: $node_id
-        ipc_port=$ipc_port+$node_id
-        rpc_port=$rpc_port+$node_id
     fi
+    data_dir=$data_dir/$node_id
+    pid_file=$data_dir/pid-file
+    let ipc_port=$ipc_port+$node_id
+    let rpc_port=$rpc_port+$node_id
 
-    echo Creating local testnet...
-    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log &
-    echo Done. Geth should now be running. See $data_dir/eth.log for details
+    echo Checking that Ethereum is installed
+    checkEthereum
+    configure
+    echo Starting node: $node_id, with ipc port: $ipc_port and rpc port: $rpc_port at data dir: $data_dir
+    start
 }
 # Start node
 function start {
-    echo NOT IMPLEMENTED
+    if [ -z "$1" ]; then
+        echo No node_id passed in, using default - $node_id;
+    else
+        let node_id=$1
+        echo New node will be created: $node_id
+    fi
+    echo Starting local testnet node: $node_id...
+    
+    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log & echo $! >> $pid_file
+    echo Done. Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
+
 }
 # Stop node
 function stop {
-    echo NOT IMPLEMENTED
+    # TODO handle the node_id param
+    echo Stopping node...
+    if [ -n "$(more $pid_file)" ]; then
+        kill -HUP $(more $pid_file)
+        echo ...done.
+    fi
 }
 # Attach
 function attach {
@@ -151,16 +170,23 @@ function unlockacc {
         # geth --password ./conf/testnet-pwd --unlock $2  --networkid 1973 --port 30801 --rpcport 8901
     fi
 }
+# Cluster the known nodes
+function cluster {
+    echo NOT IMPLEMENTED
+}
 # Clean
 function clean {
+    # TODO take a node param
+    echo Cleaning $data_dir...
     rm -rf $data_dir
+    echo ...done.
 }
 if [ -z "$1" ]; then
     usage
     exit
 fi
 if [[ "$1" == "--create" ]]; then
-    create;
+    create $2;
 elif [[ "$1" == "--addacc" ]]; then
     addacc;
 elif [[ "$1" == "--unlockacc" ]]; then
@@ -175,6 +201,8 @@ elif [[ "$1" == "--minestart" ]]; then
     startmining;
 elif [[ "$1" == "--minestop" ]]; then
     stopmining;
+elif [[ "$1" == "--cluster" ]]; then
+    cluster;
 elif [[ "$1" == "--clean" ]]; then
     clean;
 elif [[ "$1" == "--help" ]]; then
@@ -183,5 +211,6 @@ elif [[ "$1" == "-h" ]]; then
     usage;
 else
         echo Unknown command.
-        usage;
+        usage
+        exit
 fi
