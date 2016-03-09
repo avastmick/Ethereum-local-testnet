@@ -3,8 +3,12 @@
 # Sets up a local private Ethereum testnet - this should be good for any unix install with bash
 
 # Config variables - change these if you are hung up on ports etc
+
 # networkid - DON'T CHANGE to values < 10...
 networkid=9191
+
+# master_node - use the default installation path, affects the use of --datadir flag in geth
+master_node=true
 # node_id - to differentiate between configured nodes within a private network cluster
 node_id=0
 # IPC port
@@ -27,13 +31,13 @@ function usage {
     echo params:
     echo    --create [node_id]: Creates a new testnet node. If within a cluster pass in a unique node_id - default is 0
     echo    --addacc [node_id] : Creates a account on the node. The first account is the coinbase account.
-    echo    --unlockacc [account_no] [node_id] : Unlocks the account given TODO
+    echo    --unlockacc [account_no] [node_id] : Unlocks the account given
     echo    --start [node_id] : Starts the local test node
     echo    --stop [node_id] : Stops the local test node
     echo    --attach [node_id] : attaches to a running node
     echo    --minestart [node_id] : starts the miner
     echo    --minestop [node_id] : stops the miner
-    echo    --cluster : links all local nodes into a cluster TODO
+    echo    --cluster : links all local nodes into a cluster
     echo    --clean [node_id] : Removes the node data
     echo    --cleanall : Cleans the whole shebang
     echo    --help -h : This message
@@ -100,6 +104,8 @@ function configure {
 function init {
     if [ -z "$1" ]; then
         echo No node_id passed in, using default - $node_id;
+    elif [ "$1" == "0" ]; then
+        echo
     else
         let node_id=$1
         echo Node_id used: $node_id
@@ -116,7 +122,7 @@ function create {
     checkEthereum
     configure
     echo Starting node: $node_id, with ipc port: $ipc_port and rpc port: $rpc_port at data dir: $data_dir
-    
+
     start "override"
 }
 # Start node
@@ -127,7 +133,8 @@ function start {
     echo Starting local testnet node: $node_id...
 
     geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log & echo $! >> $pid_file
-    echo Done. Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
+    echo Done.
+    echo Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
 }
 # Stop node
 function stop {
@@ -135,7 +142,11 @@ function stop {
     echo Stopping node...
     if [ -n "$(more $pid_file)" ]; then
         kill -HUP $(more $pid_file)
+        # clean up the pid_file
+        rm $pid-file
         echo ...done.
+    else
+        echo Nothing to stop - check whether geth is actually running
     fi
 }
 # Attach
