@@ -1,13 +1,10 @@
 #!/bin/bash
 
-# Sets up a local Ethereum testnet - this should be good for any unix install
-# 1. TODO Checks to see if Ethereum is installed (if not then install)
-# 2. Creates a conf file for the genesis.json and password files, if they do not exist
-# 3. Creates a node using Geth with a discrete data_dir and port set.
+# Sets up a local private Ethereum testnet - this should be good for any unix install with bash
 
-# Add some variables
-# networkid
-networkid=1973
+# Config variables - change these if you are hung up on ports etc
+# networkid - DON'T CHANGE to values < 10...
+networkid=9191
 # node_id - to differentiate between configured nodes within a private network cluster
 node_id=0
 # IPC port
@@ -20,6 +17,8 @@ data_dir=/tmp/$networkid
 conf=./conf
 # pid for this node
 pid_file=""
+# Create a master, generic password - note this a private, testnet, so don't sweat too much here
+password=testpwd-01
 
 # Help
 function usage {
@@ -29,14 +28,14 @@ function usage {
     echo    --create [node_id]: Creates a new testnet node. If within a cluster pass in a unique node_id - default is 0
     echo    --addacc [node_id] : Creates a account on the node. The first account is the coinbase account.
     echo    --unlockacc [account_no] [node_id] : Unlocks the account given TODO
-    echo    --start [node_id] : Starts the local test node TODO
-    echo    --stop [node_id] : Stops the local test node TODO
+    echo    --start [node_id] : Starts the local test node
+    echo    --stop [node_id] : Stops the local test node
     echo    --attach [node_id] : attaches to a running node
     echo    --minestart [node_id] : starts the miner
     echo    --minestop [node_id] : stops the miner
-    echo    --cluster : links all local nodes into a cluster
-    echo    --clean [node_id] : Cleans the node installation back to base account
-    echo    --cleanAll : Cleans the whole shebang
+    echo    --cluster : links all local nodes into a cluster TODO
+    echo    --clean [node_id] : Removes the node data
+    echo    --cleanall : Cleans the whole shebang
     echo    --help -h : This message
 }
 # Install Ethereum
@@ -71,7 +70,7 @@ function checkEthereum {
 function configure {
     # Create the required directories and files if not there
     if [ "$(ls -A $conf 2>/dev/null)" ]; then
-        echo $conf already exists, not creating
+        echo Conf dir $conf already exists, not creating
     else
         echo Creating the local conf directory and files to configure node
         mkdir $conf
@@ -87,52 +86,52 @@ function configure {
             "gasLimit": "0xffffffff"
         }'
         echo $genesis_block > $conf/genesis_block.json
-        echo 'testpwd-01' > conf/testnet-pwd
+        echo $password > conf/testnet-pwd
     fi
     if [ "$(ls -A $data_dir 2>/dev/null)" ]; then
         echo $data_dir already exists, not creating.
-        echo If you want to re-create, run $0 --clean
+        echo If you want to re-create, run $0 --clean [node_id]
     else
         echo Creating the node data_dir at $data_dir
         mkdir -p $data_dir
     fi
 }
-# Create
-function create {
+# Init function to set up variables etc according to the inputs the user puts in. Used in ALL cases
+function init {
     if [ -z "$1" ]; then
         echo No node_id passed in, using default - $node_id;
     else
         let node_id=$1
-        echo New node will be created: $node_id
+        echo Node_id used: $node_id
     fi
     data_dir=$data_dir/$node_id
     pid_file=$data_dir/pid-file
     let ipc_port=$ipc_port+$node_id
     let rpc_port=$rpc_port+$node_id
-
+}
+# Create
+function create {
+    init $1
     echo Checking that Ethereum is installed
     checkEthereum
     configure
     echo Starting node: $node_id, with ipc port: $ipc_port and rpc port: $rpc_port at data dir: $data_dir
-    start
+    
+    start "override"
 }
 # Start node
 function start {
-    if [ -z "$1" ]; then
-        echo No node_id passed in, using default - $node_id;
-    else
-        let node_id=$1
-        echo New node will be created: $node_id
+    if [ "$1" != "override" ]; then
+        init $1
     fi
     echo Starting local testnet node: $node_id...
-    
+
     geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log & echo $! >> $pid_file
     echo Done. Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
-
 }
 # Stop node
 function stop {
-    # TODO handle the node_id param
+    init $1
     echo Stopping node...
     if [ -n "$(more $pid_file)" ]; then
         kill -HUP $(more $pid_file)
@@ -141,32 +140,38 @@ function stop {
 }
 # Attach
 function attach {
+    init $1
     echo attaching to ipc endpoint $data_dir/geth.ipc
     geth attach ipc:$data_dir/geth.ipc
 }
 # Add account
 function addacc {
+    init $1
     echo Adding account...
     geth --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --password $conf/testnet-pwd account new
 }
 # Starts the miner on the designated node
 function startmining {
+    init $1
     echo starting the miner on this node: $networkid:$ipc_port
     echo NOT IMPLEMENTED
 }
 # Stop the miner on the designated node
 function stopmining {
+    init $1
     echo stopping the miner on this node: $networkid:$ipc_port
     echo NOT IMPLEMENTED
 }
 # Unlock account
 function unlockacc {
+    init $1
     if [ -z "$2" ]; then
         echo No account passed in, exiting;
         exit
     else
         echo unlocking $2
         echo NOT IMPLEMENTED
+        # May cycle here - stop the current version of geth, unlock, restart... blurgh...
         # geth --password ./conf/testnet-pwd --unlock $2  --networkid 1973 --port 30801 --rpcport 8901
     fi
 }
@@ -176,11 +181,18 @@ function cluster {
 }
 # Clean
 function clean {
-    # TODO take a node param
+    init $1
     echo Cleaning $data_dir...
     rm -rf $data_dir
     echo ...done.
 }
+# Clean all - complete removal of cluster
+function cleanall {
+    echo Complete clean of $data_dir...
+    rm -rf $data_dir
+    echo ...done.
+}
+
 if [ -z "$1" ]; then
     usage
     exit
@@ -188,23 +200,25 @@ fi
 if [[ "$1" == "--create" ]]; then
     create $2;
 elif [[ "$1" == "--addacc" ]]; then
-    addacc;
+    addacc $2;
 elif [[ "$1" == "--unlockacc" ]]; then
-    unlockacc;
+    unlockacc $2;
 elif [[ "$1" == "--start" ]]; then
-    start;
+    start $2;
 elif [[ "$1" == "--stop" ]]; then
-    stop;
+    stop $2;
 elif [[ "$1" == "--attach" ]]; then
-    attach;
+    attach $2;
 elif [[ "$1" == "--minestart" ]]; then
-    startmining;
+    startmining $2;
 elif [[ "$1" == "--minestop" ]]; then
-    stopmining;
+    stopmining $2;
 elif [[ "$1" == "--cluster" ]]; then
     cluster;
 elif [[ "$1" == "--clean" ]]; then
-    clean;
+    clean $2;
+elif [[ "$1" == "--cleanall" ]]; then
+    cleanall;
 elif [[ "$1" == "--help" ]]; then
     usage;
 elif [[ "$1" == "-h" ]]; then

@@ -1,5 +1,7 @@
 # Create a local testnet via manual-shmanual and point scripts
 
+ITERATION ONE: To step through the process and learn how it works, follow the instructions here.
+
 ## Node 1 - An Ubuntu guest VM (server)
 
 ### Set-up Ethereum
@@ -19,7 +21,6 @@ sudo passwd testnet
 [new password]
 su - testnet
 ````
-
 
 ## Configure installation of testnet
 Set up configuration
