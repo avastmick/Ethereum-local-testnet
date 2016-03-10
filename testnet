@@ -16,7 +16,7 @@ ipc_port=30801
 # RPC port
 rpc_port=8901
 # data_dir
-data_dir=/tmp/$networkid
+data_dir=""
 # conf
 conf=./conf
 # pid for this node
@@ -100,17 +100,33 @@ function configure {
         mkdir -p $data_dir
     fi
 }
+# Set the default datadir according to OS
+function set_default_datadir {
+    if [[ $OSTYPE == darwin* ]]; then
+        data_dir="$HOME/Library/Ethereum"
+        echo Using default datadir: $data_dir
+    elif [[ $OSTYPE == linux-gnu ]]; then
+        data_dir="$HOME/.ethereum"
+        echo Using default datadir: $data_dir
+    else # This is not supported
+        echo Sorry not supported, check the Ethereum docs for your Operating system
+        exit
+    fi
+}
 # Init function to set up variables etc according to the inputs the user puts in. Used in ALL cases
 function init {
     if [ -z "$1" ]; then
-        echo No node_id passed in, using default - $node_id;
+        set_default_datadir
+        echo No node_id passed in, using default - $node_id at $data_dir;
     elif [ "$1" == "0" ]; then
-        echo
+        set_default_datadir
+        echo Using default / master node settings at $data_dir
     else
         let node_id=$1
-        echo Node_id used: $node_id
+        let master_node=false
+        data_dir=/tmp/$networkid/$node_id
+        echo Node_id used: $node_id at at $data_dir
     fi
-    data_dir=$data_dir/$node_id
     pid_file=$data_dir/pid-file
     let ipc_port=$ipc_port+$node_id
     let rpc_port=$rpc_port+$node_id
@@ -121,8 +137,14 @@ function create {
     echo Checking that Ethereum is installed
     checkEthereum
     configure
-    echo Starting node: $node_id, with ipc port: $ipc_port and rpc port: $rpc_port at data dir: $data_dir
-
+    echo Created configured node:
+    echo "   with local ID: $node_id,"
+    echo "   with ipc port: $ipc_port"
+    echo "   and rpc port: $rpc_port"
+    if [ @master_node != true ]; then
+        echo "   at data dir: $data_dir"
+    fi
+    # And start the node
     start "override"
 }
 # Start node
@@ -130,11 +152,15 @@ function start {
     if [ "$1" != "override" ]; then
         init $1
     fi
-    echo Starting local testnet node: $node_id...
+    echo Starting local testnet node with local ID: $node_id...
 
     geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log & echo $! >> $pid_file
     echo Done.
-    echo Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
+    if [ -n "$(more $pid_file)" ]; then
+        echo Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
+    else
+        echo Geth failed to start. Check errors and or $data_dir/eth.log for details
+    fi
 }
 # Stop node
 function stop {
@@ -143,7 +169,7 @@ function stop {
     if [ -n "$(more $pid_file)" ]; then
         kill -HUP $(more $pid_file)
         # clean up the pid_file
-        rm $pid-file
+        rm $pid_file
         echo ...done.
     else
         echo Nothing to stop - check whether geth is actually running
@@ -164,13 +190,13 @@ function addacc {
 # Starts the miner on the designated node
 function startmining {
     init $1
-    echo starting the miner on this node: $networkid:$ipc_port
+    echo starting the miner on this node: $node_id on $networkid: $ipc_port
     echo NOT IMPLEMENTED
 }
 # Stop the miner on the designated node
 function stopmining {
     init $1
-    echo stopping the miner on this node: $networkid:$ipc_port
+    echo stopping the miner on this node: $node_id on $networkid: $ipc_port
     echo NOT IMPLEMENTED
 }
 # Unlock account
@@ -200,6 +226,8 @@ function clean {
 # Clean all - complete removal of cluster
 function cleanall {
     echo Complete clean of $data_dir...
+    rm -rf /tmp/$networkid/
+    set_default_datadir
     rm -rf $data_dir
     echo ...done.
 }
