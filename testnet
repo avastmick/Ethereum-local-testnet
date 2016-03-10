@@ -105,10 +105,8 @@ function configure {
 function set_default_datadir {
     if [[ $OSTYPE == darwin* ]]; then
         data_dir="$HOME/Library/Ethereum"
-        echo Using default datadir: $data_dir
     elif [[ $OSTYPE == linux-gnu ]]; then
         data_dir="$HOME/.ethereum"
-        echo Using default datadir: $data_dir
     else # This is not supported
         echo Sorry not supported, check the Ethereum docs for your Operating system
         exit
@@ -158,7 +156,7 @@ function start {
     fi
     echo Starting local testnet node with local ID: $node_id...
 
-    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --identity $identity --port $ipc_port --rpcport $rpc_port --nodiscover 2>> $data_dir/eth.log & echo $! >> $pid_file
+    geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --identity $identity --port $ipc_port --rpcport $rpc_port 2>> $data_dir/eth.log & echo $! >> $pid_file
     echo Done.
     if [ -n "$(more $pid_file)" ]; then
         echo Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
@@ -217,6 +215,7 @@ function unlockacc {
     fi
 }
 # Cluster the known nodes
+# Create a registry of current nodes and their enode URL
 function cluster {
     echo NOT IMPLEMENTED
 }
@@ -231,11 +230,13 @@ function clean {
 function cleanall {
     echo Complete clean...
     if [ "$(ls -A /tmp/$networkid 2>/dev/null)" ]; then
+        echo Cleaning /tmp/$networkid
         rm -rf /tmp/$networkid
     fi
 
     set_default_datadir
     if [ "$(ls -A $data_dir 2>/dev/null)" ]; then
+        echo Cleaning $data_dir
         rm -rf $data_dir
     fi
     echo ...done.
