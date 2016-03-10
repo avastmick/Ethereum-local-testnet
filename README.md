@@ -7,13 +7,15 @@ The intent is to enable users to quickly set up a clustered node set that allows
 
 ## Warnings and Disclaimers
 Three warnings:
+
 1. Use at your own risk!
 2. Don't use the configurations here to connect to the live Ethereum (Frontier / Homestead) network.
 3. Change the password for initialising the blockchain if you are distributing wider than local, private usage.
 
 ## Set-up and prerequisites
-Ethereum is installed
-Commands use Geth CLI
+
+* Ethereum is installed
+* Commands currently use Geth CLI only
 
 # Start-point
 
@@ -22,7 +24,7 @@ If you want to just stop manual configurations and need to bootstrap your develo
 
 # Next steps
 
-I'll add something more flexible than a blunt instrument bash script using python and later rust (cos I can).
+I'll add something more flexible than a blunt instrument bash script, using python and later rust (cos I can).
 
 I hope it gets you to where you want to go faster than manual configuration.
 
