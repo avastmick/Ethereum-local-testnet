@@ -18,6 +18,7 @@ node_id=0
 eth_port=30801
 # RPC port - default is 8545
 rpc_port=8901
+datadir_root="/tmp/"$networkid
 # data_dir
 data_dir=""
 # cluster_registry
@@ -123,21 +124,30 @@ function set_default_datadir {
 function init {
     if [ -z "$1" ]; then
         set_default_datadir
-        echo No node_id passed in, using default at $data_dir;
+        node_id=0
+        echo No node_id passed in, using default at $data_dir setting node to $node_id
     elif [ "$1" == "0" ]; then
         set_default_datadir
-        echo Using default / master node settings at $data_dir
+        node_id=0
+        echo Using default / master node settings at $data_dir for node: $node_id
     else
         set_default_datadir
-        let node_id=$1
-        let master_node=false
-        data_dir=/tmp/$networkid/$node_id
+        node_id=$1
+        master_node=false
+        data_dir=$datadir_root/$node_id
         echo Node_id used: $node_id at at $data_dir
     fi
     identity=$identity$node_id
     pid_file=$data_dir/pid-file
     let eth_port=$eth_port+$node_id
     let rpc_port=$rpc_port+$node_id
+}
+# addEnodeToNode [node_id] [enodeURL]
+function addEnodeToNode {
+        init $1
+        js='admin.addPeer("'$2'"); exit();'
+        cmd='geth --exec "'$js'" attach ipc:$data_dir/geth.ipc'
+        bash -c $cmd
 }
 # Create
 function create {
@@ -151,9 +161,8 @@ function create {
     echo "   with local ID: $node_id,"
     echo "   with eth port: $eth_port"
     echo "   and rpc port: $rpc_port"
-    if [ @master_node != true ]; then
-        echo "   at data dir: $data_dir"
-    fi
+    echo "   at data dir: $data_dir"
+
     # Add to cluster registry and start
     echo Creating a local testnet node with local ID: $node_id...
     gethcmd="geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --identity $identity --port $eth_port --rpcport $rpc_port --nodiscover --verbosity $verbosity"
@@ -161,8 +170,22 @@ function create {
     echo Adding node to cluster registry
 
     # Add this node to the registry - one line per node load into master at start up
-    bash -c "$createcmd" 2> $data_dir/eth.log | tee >> $cluster_registry
+    enode="$(bash -c "$createcmd" 2> $data_dir/eth.log)"
+    # Trim the query string
+    enodeurl=$( echo $enode | perl -pe "s/(\?.*)$//g" )
+
+    echo $enodeurl >> $cluster_registry
     echo Created node, added to registry at: $cluster_registry
+    # Adding enode URL to existing nodes
+    if [ $master_node != "true" ]; then
+        for node in $(ls $datadir_root)
+        do
+            if [ $node != $node_id ]; then
+                addEnodeToNode $node $enodeurl
+            fi
+        done
+        addEnodeToNode 0 $enodeurl
+    fi
 
     # Add coinbase to nodeInfo
     echo Setting coinbase to node
@@ -192,6 +215,14 @@ function start {
     else
         echo Geth failed to start. Check errors and or $data_dir/eth.log for details
     fi
+    # First need to load the registered enode URLs for the rest of the cluster
+    echo TODO re-load the enode URLs of the other nodes in the cluster
+    #echo $( split())
+    #gethcmd="geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --identity $identity --port $eth_port --rpcport $rpc_port --nodiscover --verbosity $verbosity"
+    #bash -c "$gethcmd js <(echo 'admin.addPeer($2); exit();') "
+    #while IFS='' read -r line || [[ -n "$line" ]]; do
+    #    echo "Text read from file: $line"
+    #done < "$1"
 }
 # Stop node
 function stop {
@@ -263,7 +294,7 @@ function clean {
 # Clean all - complete removal of cluster
 function cleanall {
     echo Complete clean...
-    if [ "$(ls -A /tmp/$networkid 2>/dev/null)" ]; then
+    if [ "$(ls -A $datadir_root 2>/dev/null)" ]; then
         echo Cleaning /tmp/$networkid
         rm -rf /tmp/$networkid
     fi
