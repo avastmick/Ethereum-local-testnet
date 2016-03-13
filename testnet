@@ -6,27 +6,28 @@
 # Logging level: 1, none, 6 debug
 verbosity=6
 # Config variables - change these if you are hung up on ports etc
-# networkid - DON'T CHANGE to values < 10...
+# what is the IP Address
+ip_addr=127.0.0.1
+# networkid - DON'T CHANGE to values < 10 for safety
 networkid=9191
 # Identity of the node
 identity=private_
-# master_node - use the default installation path, affects the use of --datadir flag in geth
-master_node=true
-# node_id - to differentiate between configured nodes within a private network cluster
-node_id=0
+# default_node - use the default installation path, affects the use of --datadir flag in geth
+default_node=true
+# Creating num_nodes - default 5
+num_nodes=5
 # Eth port - default is 30303
-eth_port=30801
+eth_port=3080
 # RPC port - default is 8545
-rpc_port=8901
+rpc_port=890
+# default data_dir
+default_data_dir=""
+# non-default data_dir root
 datadir_root="/tmp/"$networkid
-# data_dir
-data_dir=""
-# cluster_registry
-cluster_registry=""
+# static-nodes.json
+static_nodes="/static-nodes.json"
 # conf
 conf=./conf
-# pid for this node
-pid_file=""
 # Create a master, generic password - note this a private, testnet, so don't sweat too much here
 password=testpwd-01
 
@@ -35,15 +36,17 @@ function usage {
     echo Usage:
     echo    testnet [param]
     echo params:
-    echo    --create [node_id]: Creates a new testnet node. If within a cluster pass in a unique node_id - default is 0
+    echo    --create [node_num]: Creates a new testnet cluster of given size
     echo    --addacc [node_id] : Creates a account on the node. The first account is the coinbase account.
     echo    --unlockacc [node_id] [account_no] : Unlocks the account given
     echo    --start [node_id] : Starts the local test node
-    echo    --stop [node_id] : Stops the local test node
+    echo    --startall : Starts all the configured local test nodes
+    echo    --stop [node_id] : Stops a given local test node
+    echo    --stopall : Stops all the running local test nodes
     echo    --attach [node_id] : attaches to a running node
-    echo    --minestart [node_id] [cores] : starts the miner
-    echo    --minestop [node_id] [cores] : stops the miner
-    echo    --clean [node_id] : Removes the designated node data
+    echo    --minestart [node_id] [cores] : starts the miner at a given node
+    echo    --minestop [node_id] [cores] : stops the miner at a given node
+    echo    --clean [node_id] : Removes the designated node data, removes it from cluster
     echo    --cleanall : Cleans the whole shebang. All nodes, back to the user account
     echo    --help -h : This message
 }
@@ -97,13 +100,6 @@ function configure {
         echo $genesis_block > $conf/genesis_block.json
         echo $password > conf/testnet-pwd
     fi
-    if [ "$(ls -A $data_dir 2>/dev/null)" ]; then
-        echo $data_dir already exists, not creating.
-        echo If you want to re-create, run $0 --clean [node_id]
-    else
-        echo Creating the node data_dir at $data_dir
-        mkdir -p $data_dir
-    fi
 }
 # Set the default datadir according to OS
 function set_default_datadir {
@@ -115,129 +111,125 @@ function set_default_datadir {
         echo Sorry not supported, check the Ethereum docs for your Operating system
         exit
     fi
-    cluster_registry=$data_dir/cluster_registry
-    if [ ! -f $cluster_registry  ]; then
-        echo Created new registry: $cluster_registry
-    fi
 }
-# Init function to set up variables etc according to the inputs the user puts in. Used in ALL cases
-function init {
-    if [ -z "$1" ]; then
-        set_default_datadir
-        node_id=0
-        echo No node_id passed in, using default at $data_dir setting node to $node_id
-    elif [ "$1" == "0" ]; then
-        set_default_datadir
-        node_id=0
-        echo Using default / master node settings at $data_dir for node: $node_id
-    else
-        set_default_datadir
-        node_id=$1
-        master_node=false
-        data_dir=$datadir_root/$node_id
-        echo Node_id used: $node_id at at $data_dir
-    fi
-    identity=$identity$node_id
-    pid_file=$data_dir/pid-file
-    let eth_port=$eth_port+$node_id
-    let rpc_port=$rpc_port+$node_id
+# addEnodeToNode [enodeURL]
+function addToStaticNodes {
+        static_nodes_new="conf/$static_nodes-new"
+
+        if [ $1 == 1 ]; then
+            echo Starting new file static_nodes file with $num_nodes nodes in cluster
+            echo "[" >> $static_nodes_new
+        fi
+        if [ $1 != $num_nodes ]; then
+            echo $2"," >> $static_nodes_new
+        else
+            echo $2 >> $static_nodes_new
+            echo "]" >> $static_nodes_new
+        fi
 }
-# addEnodeToNode [node_id] [enodeURL]
-function addEnodeToNode {
-        init $1
-        js='admin.addPeer("'$2'"); exit();'
-        cmd='geth --exec "'$js'" attach ipc:$data_dir/geth.ipc'
-        bash -c $cmd
-}
-# Create
+# Create [num_nodes]
 function create {
-    init $1
     echo Checking that Ethereum is installed
     checkEthereum
     configure
-    echo Created configured node:
-    echo "   network ID: $networkid,"
-    echo "   with identifier: $identity,"
-    echo "   with local ID: $node_id,"
-    echo "   with eth port: $eth_port"
-    echo "   and rpc port: $rpc_port"
-    echo "   at data dir: $data_dir"
-
-    # Add to cluster registry and start
-    echo Creating a local testnet node with local ID: $node_id...
-    gethcmd="geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --identity $identity --port $eth_port --rpcport $rpc_port --nodiscover --verbosity $verbosity"
-    createcmd="$gethcmd js <(echo 'console.log(admin.nodeInfo.enode); exit();') "
-    echo Adding node to cluster registry
-
-    # Add this node to the registry - one line per node load into master at start up
-    enode="$(bash -c "$createcmd" 2> $data_dir/eth.log)"
-    # Trim the query string
-    enodeurl=$( echo $enode | perl -pe "s/(\?.*)$//g" )
-
-    echo $enodeurl >> $cluster_registry
-    echo Created node, added to registry at: $cluster_registry
-    # Adding enode URL to existing nodes
-    if [ $master_node != "true" ]; then
-        for node in $(ls $datadir_root)
-        do
-            if [ $node != $node_id ]; then
-                addEnodeToNode $node $enodeurl
-            fi
-        done
-        addEnodeToNode 0 $enodeurl
+    if [ -n "$1" ]; then
+        num_nodes=$1 # Else go with default
     fi
+    for ((i=1;i<=num_nodes;++i)); do
+        echo Creating $i of $num_nodes nodes for cluster
+        _datadir=""
+        if [ $i == "1" ]; then
+            set_default_datadir
+            _datadir=$data_dir
+            mkdir $_datadir
+        else
+            _datadir=$datadir_root/$i
+            mkdir -p $_datadir
+        fi
+        echo Creating node configured as:
+        echo "   datadir $_datadir"
+        echo "   network ID: $networkid,"
+        echo "   with identifier: $identity$i,"
+        echo "   with local ID: $i,"
+        echo "   with eth port: $eth_port$i"
+        echo "   and rpc port: $rpc_port$i"
 
-    # Add coinbase to nodeInfo
-    echo Setting coinbase to node
-    addacc $1 2>/dev/null
-    # Start up
-    echo Starting node...
-    bash -c "$gethcmd" 2>> $data_dir/eth.log & echo $! >> $pid_file
-    echo Done.
+        gethcmd="geth --genesis $conf/genesis_block.json --datadir $_datadir --networkid $networkid --identity $identity$i --port $eth_port$i --rpcport $rpc_port$i --nodiscover --verbosity $verbosity"
+        createcmd="$gethcmd js <(echo 'console.log(admin.nodeInfo.enode); exit();') "
+        # Add this get the enode URL to add to the  static_nodes.json file
+        enode="$(bash -c "$createcmd" 2> $_datadir/eth.log)"
+        # Trim the query string
+        enodeurl=$( echo $enode | perl -pe "s/\[\:\:\]/$ip_addr/g" | perl -pe "s/^/\"/; s/\s*$/\"/;" )
+        addToStaticNodes $i $enodeurl
 
+        echo Setting coinbase to node
+        addacc $i 2>/dev/null
+
+    done
+    # Now start them up
+    for ((i=1;i<=num_nodes;++i)); do
+        start $i
+    done
 }
 # Start node
 function start {
-    init $1
-    echo Starting local testnet node with local ID: $node_id...
-    geth --datadir $data_dir \
+    _datadir=""
+    if [ $1 == 1 ]; then
+        set_default_datadir
+        _datadir=$data_dir
+    else
+        _datadir=$datadir_root/$1
+    fi
+    # copy over the static_nodes file
+    cp $static_nodes_new $_datadir/$static_nodes
+    echo Starting local testnet node with local ID: $1
+    geth --datadir $_datadir \
          --networkid $networkid \
-         --identity $identity \
-         --port $eth_port \
-         --rpcport $rpc_port \
+         --identity $identity$1 \
+         --port $eth_port$1 \
+         --rpcport $rpc_port$1 \
          --nodiscover \
          --verbosity $verbosity \
-         2>> $data_dir/eth.log & echo $! >> $pid_file;
+         2>> $_datadir/eth.log & echo $! >> $_datadir/pid_file;
     echo Done.
 
-    if [ -n "$(more $pid_file)" ]; then
-        echo Geth should now be running with pid: $(more $pid_file). See $data_dir/eth.log for details
+    if [ -n "$(more $_datadir/pid_file)" ]; then
+        echo Geth should now be running with pid: $(more $_datadir/pid_file). See $_datadir/eth.log for details
     else
-        echo Geth failed to start. Check errors and or $data_dir/eth.log for details
+        echo Geth failed to start. Check errors and or $_datadir/eth.log for details
     fi
-    # First need to load the registered enode URLs for the rest of the cluster
-    echo TODO re-load the enode URLs of the other nodes in the cluster
-    #echo $( split())
-    #gethcmd="geth --genesis $conf/genesis_block.json --datadir $data_dir --networkid $networkid --identity $identity --port $eth_port --rpcport $rpc_port --nodiscover --verbosity $verbosity"
-    #bash -c "$gethcmd js <(echo 'admin.addPeer($2); exit();') "
-    #while IFS='' read -r line || [[ -n "$line" ]]; do
-    #    echo "Text read from file: $line"
-    #done < "$1"
+}
+# Start all
+function stopall {
+    datadir_root="/tmp/$networkid"
+
+    for node in $(ls $datadir_root)
+    do
+        start $node
+    done
+    # Start default
+    start 1
 }
 # Stop node
 function stop {
-    init $1
-    echo Stopping node...
-    if [ -n "$(more $pid_file)" ]; then
-        kill -HUP $(more $pid_file)
+    _datadir=""
+    if [ $1 == "1" ]; then
+        set_default_datadir
+        _datadir=$data_dir
+    else
+        _datadir=$datadir_root/$1
+    fi
+    echo Stopping node $1 at $_datadir
+    if [ -n "$(more $_datadir/pid_file)" ]; then
+        kill -HUP $(more $_datadir/pid_file)
         # clean up the pid_file
-        rm $pid_file
+        rm $_datadir/pid_file
         echo ...done.
     else
         echo Nothing to stop - check whether geth is actually running
     fi
 }
-# Stop al
+# Stop all
 function stopall {
     datadir_root="/tmp/$networkid"
 
@@ -245,35 +237,49 @@ function stopall {
     do
         stop $node
     done
-    stop
+    # Stop default
+    stop 1
 }
 # Attach
 function attach {
-    init $1
-    echo attaching to ipc endpoint $data_dir/geth.ipc
-    geth attach ipc:$data_dir/geth.ipc
+    node=$1
+    if [ -z "$1" ]; then
+        node="1"
+    fi
+    _datadir=""
+    if [ $node == 1 ]; then
+        set_default_datadir
+        _datadir=$data_dir
+    else
+        _datadir=$datadir_root/$1
+    fi
+    echo attaching to ipc endpoint $_datadir/geth.ipc
+    geth attach ipc:$_datadir/geth.ipc
 }
 # Add account
 function addacc {
-    init $1
+    _datadir=""
+    if [ $1 == 1 ]; then
+        set_default_datadir
+        _datadir=$data_dir
+    else
+        _datadir=$datadir_root/$1
+    fi
     echo Adding account...
-    geth --datadir $data_dir --networkid $networkid --port $eth_port --rpcport $rpc_port --password $conf/testnet-pwd account new
+    geth --datadir $_datadir --networkid $networkid --port $eth_port --rpcport $rpc_port --password $conf/testnet-pwd account new
 }
 # Starts the miner on the designated node
 function startmining {
-    init $1
     echo starting the miner on this node: $node_id on $networkid: $eth_port
     echo NOT IMPLEMENTED
 }
 # Stop the miner on the designated node
 function stopmining {
-    init $1
     echo stopping the miner on this node: $node_id on $networkid: $eth_port
     echo NOT IMPLEMENTED
 }
 # Unlock account
 function unlockacc {
-    init $1
     if [ -z "$2" ]; then
         echo No account passed in, exiting;
         exit
@@ -286,9 +292,15 @@ function unlockacc {
 }
 # Clean
 function clean {
-    init $1
-    echo Cleaning $data_dir...
-    rm -rf $data_dir
+    _datadir=""
+    if [ $1 == 1 ]; then
+        set_default_datadir
+        _datadir=$data_dir
+    else
+        _datadir=$datadir_root/$1
+    fi
+    echo Cleaning $_datadir...
+    rm -rf $_datadir
     echo ...done.
 }
 # Clean all - complete removal of cluster
@@ -310,6 +322,8 @@ function cleanall {
         rm -rf "$HOME/.ethash"
     fi
 
+    rm $conf/static-nodes.json-new
+
     echo ...done.
 }
 
@@ -325,6 +339,8 @@ elif [[ "$1" == "--unlockacc" ]]; then
     unlockacc $2 $3;
 elif [[ "$1" == "--start" ]]; then
     start $2;
+elif [[ "$1" == "--startall" ]]; then
+    startall;
 elif [[ "$1" == "--stop" ]]; then
     stop $2;
 elif [[ "$1" == "--stopall" ]]; then
@@ -334,9 +350,7 @@ elif [[ "$1" == "--attach" ]]; then
 elif [[ "$1" == "--minestart" ]]; then
     startmining $2 $3;
 elif [[ "$1" == "--minestop" ]]; then
-    stopmining $2 $3;
-elif [[ "$1" == "--cluster" ]]; then
-    cluster;
+    stopmining $2 $3
 elif [[ "$1" == "--clean" ]]; then
     clean $2;
 elif [[ "$1" == "--cleanall" ]]; then

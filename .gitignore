@@ -3,3 +3,4 @@
 **/bin/*.log
 **-tmp*
 **planning*
+**static-nodes.json*
