@@ -14,7 +14,7 @@ This creates a cluster of nodes with one at the default Geth location to allow t
 
 ## Goals
 1. Usability. While most of the developer tools are available and can get you going, they require a good deal of configuration, understanding and look-up to get things going.
-2. Spped. To enable users to quickly set up a clustered node set that allows a clean and repeatable development environment with which a more robust, controllable and realistic testing regime than can be possibly achieved using the public testnet (Morden) or manually using the existing tools or utils.
+2. Speed. To enable users to quickly set up a clustered node set that allows a clean and repeatable development environment with which a more robust, controllable and realistic testing regime than can be possibly achieved using the public testnet (Morden) or manually using the existing tools or utils.
 3. Tools. To configurure a cluster that will allow the various Ethereum UI applications, such as Mist to use a private network, so easy maniputation of transactions, contracts, gas etc. can be done simply and through the offical tools.
 4. Learning. I've learnt a huge amount just getting this going. It started as a set of diparate scripts that I'd created to allow repeatable action; then I stitched these together to speed things up; finally I wanted to blow everything away to ensure nothing locally was causing errors etc. in good test practise.
 5. A continuous integration environment to speed up and make safe contract development.
