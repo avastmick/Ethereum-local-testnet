@@ -39,14 +39,15 @@ If you want to just stop manual configurations and need to bootstrap your develo
 
 # Next steps
 
-1. I'll add something more flexible than a blunt instrument bash script, using python and later rust (cos I can).
-2. A simple UI to manage.
-3. Fix the various functional gaps and issues
+1. I'll add something more flexible than a blunt instrument bash script, using python and later rust (cos I can);
+2. Get it work with other client, firstly ``eth`` the CPP client, then [Ethcore](https://github.com/ethcore/parity) ``parity``;
+3. A simple UI to manage;
+4. Fix the various functional gaps and issues
 
 I hope it gets you to where you want to go faster than manual configuration.
 
 # Thanks
-Just thanks to the Ethereum Foundation for all this happening and all the documentation that the community generates.
+Just thanks to the [Ethereum Foundation](https://ethereum.org/foundation) for the brains and all the documentation that the community generates that gets people going in a non-trivial domain.
 
 To [Tasha at π Tech Lab](http://carl.pro/#/about) for the initial [instructions on how to get a private test net up](http://tech.lab.carl.pro/kb/ethereum/testnet_setup).
 
