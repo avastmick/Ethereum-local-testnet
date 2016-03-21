@@ -40,8 +40,8 @@ function usage {
     echo    --addacc [node_id] : Creates a account on the node. The first account is the coinbase account.
     echo    --unlockacc [node_id] [account_no] : Unlocks the account given
     echo    --start [node_id] : Starts the local test node
-    echo    --startall : Starts all the configured local test nodes
     echo    --stop [node_id] : Stops a given local test node
+    echo    --startall : Starts all the configured local test nodes
     echo    --stopall : Stops all the running local test nodes
     echo    --attach [node_id] : attaches to a running node
     echo    --minestart [node_id] [cores] : starts the miner at a given node
