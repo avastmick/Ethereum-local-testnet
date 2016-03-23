@@ -1,0 +1,13 @@
+{
+    "ipAddress" : "127.0.0.1",
+    "networkID" : 9191,
+    "nodeIdentity" : "private_",
+    "verbosity" : "5",
+    "ethPort" : "3080",
+    "rpcPort" : "890",
+    "nodeCount" : 5,
+    "defaultDataDir" : "",
+    "nonDefaultRootDir" : "",
+    "staticNodes" : "/static-nodes.json",
+    "password" : "testpwd"
+}

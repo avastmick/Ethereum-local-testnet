@@ -1,8 +1,12 @@
 #!/usr/bin/python
 
 import platform
+import os.path
+import pprint
+import json
 
 #######################################################################################
+#   REMOVE ON DONE
 #   Refactor this to enable cross-platform usage (i.e. adding Windows support)
 #   Step 1: Get running as is, then
 #   Step 2: Add module / function to write a JSON file to config to hold settings 
@@ -13,6 +17,47 @@ import platform
 #           put into a function / macro that will get the right value from the
 #           JSON file 
 #######################################################################################
+
+# NOTE: Changes should only be required to this script if run in standalone mode (i.e. outside the repo structure)
+# 
+# This script does not expect that the repo structure is present, so it should be fully portable
+# However, the conf directory will be checked to see if it is being run within the repo and if so some steps will be skipped
+# As a global
+confDir = "./conf/"
+
+'''
+The @TestnetConf object encapsulates the data in the testnet-config.json file.
+  This will be loaded at process start through the init() function, below.
+
+The following values will be be present in the file. The defaults here will be overwritten if the file exists,
+  the file doesn't exist, these values will be written out to a new file (allowing true cleaning):
+  ipAddress - the IP address used for the nodes (defaults to localhost - 127.0.0.1)
+  networkID - the ID of the private network created
+  nodeIdentity - the identity that is displayed for the network
+  verbosity - the logging leveln (defaulting to 5)
+  ethPort - the root of the port number, i.e. if it were 3080, the default node would listen on 30800
+  rpcPort - the root of the rpc port number
+  nodeCount - the (default) number of nodes to be in the cluster
+  defaultDataDir - the location of the default node, i.e on Linux this would be $HOME/.ethereum
+  nonDefaultRootDir - the location of where the other nodes are deployed, usually in a $tmp location
+  confDir - the path to the config (defaults to /conf)
+  staticNodes = "/static-nodes.json", the JSON file that will store the node enode URLs
+  password - a default password to use (default "testpwd")
+'''
+class TestnetConf:
+    def __init__(self):
+        ipAddress = "127.0.0.1"
+        networkID = 9191
+        nodeIdentity = "private_"
+        verbosity = "5"
+        ethPort = "3080"
+        rpcPort = "890"
+        nodeCount = 5
+        defaultDataDir = ""
+        nonDefaultRootDir = ""
+        staticNodes = "/static-nodes.json"
+        password = "testpwd"
+
 
 # Help / Usage - just prints out to console
 def usage():
@@ -37,33 +82,46 @@ def usage():
 def configure():
     # Set up the genesis block file
     genesis_block = ('{ '
-            '"nonce": "0x0000000000000042",'
-            '"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",'
-            '"difficulty": "0x4000",'
-            '"alloc": {},'
-            '"coinbase": "0x0000000000000000000000000000000000000000",'
-            '"timestamp": "0x00",'
-            '"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",'
-            '"extraData": "Custom Ethereum Genesis Block for initiating a local test net",'
+            '"nonce": "0x0000000000000042", '
+            '"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
+            '"difficulty": "0x4000", '
+            '"alloc": {}, '
+            '"coinbase": "0x0000000000000000000000000000000000000000", '
+            '"timestamp": "0x00", '
+            '"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
+            '"extraData": "Custom Ethereum Genesis Block for initiating a local test net", '
             '"gasLimit": "0xffffffff" }')
 
-## This sets up a JSON file containing the data required to run
-# The following will be written:
-#   idAddress - the IP address used for the nodes (defaults to localhost - 127.0.0.1)
-#   networkID - the ID of the private network created
-#   identity - the identity that is displayed for the network
-#   verbosity - the logging level
-#   ethPort - the root of the port number, i.e. if it were 3080, the default node would listen on 30800
-#   rpcPort - the root of the rpc port number
-#   nodeCount - the (default) number of nodes to be in the cluster
-#   defaultDataDir - the location of the default node, i.e on Linux this would be $HOME/.ethereum
-#   nonDefaultRootDir - the location of where the other nodes are deployed, usually in a $tmp location
-#   confDir - the path to the config (defaults to /conf)
-#   staticNodes = "/static-nodes.json", the JSON file that will store the node enode URLs
-#   password - a default password to use
+# This sets up a JSON file containing the data required to run
+# See the @TestnetConfig object for the items written to this file
+# This file is written once, if it doesn't exist, and allows change - so users can change the configuration
+# data in the file, rather than editing this file directly
 def init(): 
-    # 
-    print "TODO Inititialising"
+    # the default location for the config JSON file will be in '.'
+    testnetConf = confDir+"testnet-config.json"
+    print "Checking config..."
+    if os.path.isfile(testnetConf): # Suck in the file and overwrite the @TestnetConfig
+        print "     ...already initialised, good to go."
+
+        with open(testnetConf) as testnet_config:
+            json_data = json.load(testnet_config)
+            print(json_data)
+
+    else: 
+        # This is the first time this script has run or has been cleaned
+        # So write the default object to the file for user changes
+        print "     ...writing new configuration file - ./"+testnetConf
+        file = open(testnetConf, "w") # Created a file
+        # TODO: Push this to a formatting function
+        file.write("hello world in the new file")
+        file.write("and another line")
+        file.close()
+
+        print "         ...done."
+        # TODO: print out the file config
+    
+    # Now load into an object for usage
+    # TODO: create loading function
 
 # Gets the platform OS name (ostype)
 def getPlatformName():
@@ -102,3 +160,4 @@ def checkEthereum():
 
 usage()
 checkEthereum()
+init()

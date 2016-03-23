@@ -2,6 +2,10 @@
 
 # Sets up a local private Ethereum testnet - this should be good for any unix install with bash
 # See https://github.com/avastmick/ethereum-local-testnet/wiki
+# This script will be in-step with the cross-platform implpementation (Python) as it is useful for
+# usage within containers and avoids further installation on an image of software
+# 
+# TODO: implement mining and unlocking of accounts
 
 # Logging level: 1, none, 6 debug
 verbosity=6
@@ -29,7 +33,7 @@ static_nodes="/static-nodes.json"
 # conf
 conf=./conf
 # Create a master, generic password - note this a private, testnet, so don't sweat too much here
-password=testpwd-01
+password=testpwd
 
 # Help
 function usage {
@@ -71,7 +75,7 @@ function install-steps {
 }
 function checkEthereum {
 
-    if [ hash geth >/dev/null 2>&1 || hash eth >/dev/null 2>&1 ]; then
+    if [ hash geth >/dev/null 2>&1 ]; then
         echo No current installation of Ethereum
         install-steps
     else
