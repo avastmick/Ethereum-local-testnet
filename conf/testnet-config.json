@@ -1,4 +1,5 @@
 {
+    "__type__": "TestnetConf",
     "ipAddress" : "127.0.0.1",
     "networkID" : 9191,
     "nodeIdentity" : "private_",

@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
 import platform
-import os.path
-import pprint
+import os
 import json
 
 #######################################################################################
@@ -34,7 +33,7 @@ The following values will be be present in the file. The defaults here will be o
   ipAddress - the IP address used for the nodes (defaults to localhost - 127.0.0.1)
   networkID - the ID of the private network created
   nodeIdentity - the identity that is displayed for the network
-  verbosity - the logging leveln (defaulting to 5)
+  verbosity - the logging level (defaulting to 5)
   ethPort - the root of the port number, i.e. if it were 3080, the default node would listen on 30800
   rpcPort - the root of the rpc port number
   nodeCount - the (default) number of nodes to be in the cluster
@@ -45,7 +44,7 @@ The following values will be be present in the file. The defaults here will be o
   password - a default password to use (default "testpwd")
 '''
 class TestnetConf:
-    def __init__(self):
+    def __init__():
         ipAddress = "127.0.0.1"
         networkID = 9191
         nodeIdentity = "private_"
@@ -57,8 +56,34 @@ class TestnetConf:
         nonDefaultRootDir = ""
         staticNodes = "/static-nodes.json"
         password = "testpwd"
-
-
+    def __init__(self, ipAddress, networkID, nodeIdentity, verbosity, ethPort, rpcPort, nodeCount, defaultDataDir, nonDefaultRootDir, staticNodes, password):
+        self.ipAddress = ipAddress
+        self.networkID = networkID
+        self.nodeIdentity = nodeIdentity
+        self.verbosity = verbosity
+        self.ethPort = ethPort
+        self.rpcPort = rpcPort
+        self.nodeCount = nodeCount
+        self.defaultDataDir = defaultDataDir
+        self.nonDefaultRootDir = nonDefaultRootDir
+        self.staticNodes = staticNodes
+        self.password = password
+# Enable the decoding of testnet-config JSON files
+def config_decoder(obj):
+    if '__type__' in obj and obj['__type__'] == 'TestnetConf':
+        return TestnetConf( obj['ipAddress'], 
+                            obj['networkID'], 
+                            obj['nodeIdentity'], 
+                            obj['verbosity'], 
+                            obj['ethPort'], 
+                            obj['rpcPort'], 
+                            obj['nodeCount'],
+                            obj['defaultDataDir'], 
+                            obj['nonDefaultRootDir'], 
+                            obj['staticNodes'], 
+                            obj['password'])
+    return obj
+testnetConf = ""
 # Help / Usage - just prints out to console
 def usage():
     print "Usage:"
@@ -80,8 +105,9 @@ def usage():
 
 # Sets up the configuration items if they don't exist or if the script is being used portably
 def configure():
-    # Set up the genesis block file
-    genesis_block = ('{ '
+    # Set up the genesis block file 
+    # TODO: Move this out to a conf file
+     genesis_block = ('{ '
             '"nonce": "0x0000000000000042", '
             '"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
             '"difficulty": "0x4000", '
@@ -91,37 +117,27 @@ def configure():
             '"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
             '"extraData": "Custom Ethereum Genesis Block for initiating a local test net", '
             '"gasLimit": "0xffffffff" }')
+    # file = open(testnetConf, "w") # Created a file
+    # # TODO: Push this to a formatting function
+    # file.write("hello world in the new file")
+    # file.write("and another line")
+    # file.close()
 
-# This sets up a JSON file containing the data required to run
-# See the @TestnetConfig object for the items written to this file
-# This file is written once, if it doesn't exist, and allows change - so users can change the configuration
-# data in the file, rather than editing this file directly
+
+# This for a JSON file containing the data required to run
+# See the @TestnetConf object for the items to be found in this file
+# If it doesn't exist, the defaults are loaded
 def init(): 
-    # the default location for the config JSON file will be in '.'
-    testnetConf = confDir+"testnet-config.json"
+    # the default location for the config JSON file will be in './conf'
+    testnetConfFile = confDir+"testnet-config.json"
     print "Checking config..."
-    if os.path.isfile(testnetConf): # Suck in the file and overwrite the @TestnetConfig
-        print "     ...already initialised, good to go."
-
-        with open(testnetConf) as testnet_config:
-            json_data = json.load(testnet_config)
-            print(json_data)
-
+    if os.path.isfile(testnetConfFile): # Suck in the file and load into the @TestnetConf obj
+        with open(testnetConfFile) as testnet_config:
+            testnetConf = json.load(testnet_config, object_hook=config_decoder)
+        print "     ...initialised from json file, good to go."
     else: 
-        # This is the first time this script has run or has been cleaned
-        # So write the default object to the file for user changes
-        print "     ...writing new configuration file - ./"+testnetConf
-        file = open(testnetConf, "w") # Created a file
-        # TODO: Push this to a formatting function
-        file.write("hello world in the new file")
-        file.write("and another line")
-        file.close()
-
-        print "         ...done."
-        # TODO: print out the file config
-    
-    # Now load into an object for usage
-    # TODO: create loading function
+        print "     ...no configuration file found, using script defaults."
+        testnetConf = TestnetConf() # Portable - use the defaults
 
 # Gets the platform OS name (ostype)
 def getPlatformName():
@@ -151,6 +167,7 @@ def installSteps():
 # Checks whether Ethereum (Geth) is installed
 def checkEthereum():
     print "Sorry not yet implemented"
+    print os.popen("geth --help").read()
     # if hash geth >/dev/null 2>&1 : 
     #     print "No current installation of Ethereum"
     installSteps()
