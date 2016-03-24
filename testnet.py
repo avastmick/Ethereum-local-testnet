@@ -1,34 +1,33 @@
 #!/usr/bin/python
 
 import platform
+import pprint
 import os
 import json
 
 #######################################################################################
-#   REMOVE ON DONE
-#   Refactor this to enable cross-platform usage (i.e. adding Windows support)
-#   Step 1: Get running as is, then
-#   Step 2: Add module / function to write a JSON file to config to hold settings 
-#           for the given OS / environment
-#       - This will be created the first time the program is run
-#       - This will be loaded on any start up / run
-#       - The functions then can be abstracted properly away from the variable and
-#           put into a function / macro that will get the right value from the
-#           JSON file 
-#######################################################################################
-
-# NOTE: Changes should only be required to this script if run in standalone mode (i.e. outside the repo structure)
+# NOTE: Changes should only be required to this script if run in standalone mode
+#   - i.e. outside the repo structure
 # 
-# This script does not expect that the repo structure is present, so it should be fully portable
-# However, the conf directory will be checked to see if it is being run within the repo and if so some steps will be skipped
-# As a global
+# This script does not insist that the repo structure is present, 
+#   so it should be fully portable
+#   
+# However, the conf directory will be checked to see if it is being run within the repo;
+#    if run from the repo the JSON file will be used to config,
+#    please make any changes required to that file, rather than changing values in this
+#    script
+# 
+########################################################################################
+
+# The config directory - as a global
 confDir = "./conf/"
 
 '''
 The @TestnetConf object encapsulates the data in the testnet-config.json file.
   This will be loaded at process start through the init() function, below.
 
-The following values will be be present in the file. The defaults here will be overwritten if the file exists,
+The following values will be be present in the file. 
+    The defaults here will be overwritten if the file exists,
   the file doesn't exist, these values will be written out to a new file (allowing true cleaning):
   ipAddress - the IP address used for the nodes (defaults to localhost - 127.0.0.1)
   networkID - the ID of the private network created
@@ -46,9 +45,9 @@ The following values will be be present in the file. The defaults here will be o
 class TestnetConf:
     def __init__():
         ipAddress = "127.0.0.1"
-        networkID = 9191
+        networkID = "9191"
         nodeIdentity = "private_"
-        verbosity = "5"
+        verbosity = 5
         ethPort = "3080"
         rpcPort = "890"
         nodeCount = 5
@@ -56,7 +55,8 @@ class TestnetConf:
         nonDefaultRootDir = ""
         staticNodes = "/static-nodes.json"
         password = "testpwd"
-    def __init__(self, ipAddress, networkID, nodeIdentity, verbosity, ethPort, rpcPort, nodeCount, defaultDataDir, nonDefaultRootDir, staticNodes, password):
+        genesis_block = ""
+    def __init__(self, ipAddress, networkID, nodeIdentity, verbosity, ethPort, rpcPort, nodeCount, defaultDataDir, nonDefaultRootDir, staticNodes, password, genesis_block):
         self.ipAddress = ipAddress
         self.networkID = networkID
         self.nodeIdentity = nodeIdentity
@@ -68,7 +68,11 @@ class TestnetConf:
         self.nonDefaultRootDir = nonDefaultRootDir
         self.staticNodes = staticNodes
         self.password = password
-# Enable the decoding of testnet-config JSON files
+        self.genesis_block = genesis_block
+    def __str__(self): 
+        objStr = "Testnet Config: ipAddress: %s networkID: %s nodeIdentity: %s verbosity: %s ethPort: %s rpcPort: %s nodeCount: %s defaultDataDir: %s nonDefaultRootDir: %s staticNodes: %s password: %s genesis_block: %s" % (self.ipAddress, self.networkID, self.nodeIdentity, self.verbosity, self.ethPort, self.rpcPort, self.nodeCount, self.defaultDataDir, self.nonDefaultRootDir, self.staticNodes, self.password, self.genesis_block)
+        return objStr
+# Util - serializes the testnet-config JSON file in the @TestnetConf object
 def config_decoder(obj):
     if '__type__' in obj and obj['__type__'] == 'TestnetConf':
         return TestnetConf( obj['ipAddress'], 
@@ -81,9 +85,15 @@ def config_decoder(obj):
                             obj['defaultDataDir'], 
                             obj['nonDefaultRootDir'], 
                             obj['staticNodes'], 
-                            obj['password'])
+                            obj['password'],
+                            obj['genesis_block'])
     return obj
 testnetConf = ""
+# Util - gets the platform OS name (ostype)
+def getPlatformName():
+    ostype = platform.system()
+    return ostype
+
 # Help / Usage - just prints out to console
 def usage():
     print "Usage:"
@@ -104,29 +114,24 @@ def usage():
     print    "--help -h : This message"
 
 # Sets up the configuration items if they don't exist or if the script is being used portably
-def configure():
-    # Set up the genesis block file 
-    # TODO: Move this out to a conf file
-     genesis_block = ('{ '
-            '"nonce": "0x0000000000000042", '
-            '"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
-            '"difficulty": "0x4000", '
-            '"alloc": {}, '
-            '"coinbase": "0x0000000000000000000000000000000000000000", '
-            '"timestamp": "0x00", '
-            '"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
-            '"extraData": "Custom Ethereum Genesis Block for initiating a local test net", '
-            '"gasLimit": "0xffffffff" }')
-    # file = open(testnetConf, "w") # Created a file
-    # # TODO: Push this to a formatting function
-    # file.write("hello world in the new file")
-    # file.write("and another line")
-    # file.close()
+def getGenesisBlock():
+    # Chck whether genesis_block is configured, else set up the genesis block file from default
+    if testnetConf.genesis_block == "":
+        genesis_block = ('{ '
+                '"nonce": "0x0000000000000042", '
+                '"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
+                '"difficulty": "0x4000", '
+                '"alloc": {}, '
+                '"coinbase": "0x0000000000000000000000000000000000000000", '
+                '"timestamp": "0x00", '
+                '"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000", '
+                '"extraData": "Custom Ethereum Genesis Block for initiating a local test net", '
+                '"gasLimit": "0xffffffff" }')
+        return genesis_block
+    else:
+        return testnetConf.genesis_block
 
-
-# This for a JSON file containing the data required to run
-# See the @TestnetConf object for the items to be found in this file
-# If it doesn't exist, the defaults are loaded
+# Initialises the @TestnetConf object, either through the JSON file, or via the in-build defaults
 def init(): 
     # the default location for the config JSON file will be in './conf'
     testnetConfFile = confDir+"testnet-config.json"
@@ -138,43 +143,57 @@ def init():
     else: 
         print "     ...no configuration file found, using script defaults."
         testnetConf = TestnetConf() # Portable - use the defaults
+    # Set the default data dir and non-default data dirs according to OS platform 
+    ostype = getPlatformName()
+    if ostype == "Darwin":
+        testnetConf.defaultDataDir = os.path.expanduser("~/Library/Ethereum/geth.ipc")
+        testnetConf.nonDefaultRootDir = "/tmp/"+testnetConf.networkID
+    elif ostype == "Linux":
+        testnetConf.defaultDataDir = os.path.expanduser("~/.ethereum/geth.ipc")
+        testnetConf.nonDefaultRootDir = "/tmp/"+testnetConf.networkID
+    elif ostype == "Windows":
+        testnetConf.defaultDataDir = os.path.expanduser("\\~\\AppData\\Roaming\\Ethereum")
+        testnetConf.nonDefaultRootDir = os.path.expanduser("\\~\\AppData\\Local\\Temp\\")+testnetConf.networkID
+    else: # This is not supported
+        print "Sorry, check the Ethereum docs for your Operating system"
+        exit()
+    # Bit of debug
+    if testnetConf.verbosity > 4:
+        print(testnetConf)
 
-# Gets the platform OS name (ostype)
-def getPlatformName():
-    ostype = platform.system()
-    return ostype
-
-# Instructions to install Ethereum
+# Instructions to the user on how to install Ethereum for their platform / OS
 def installSteps(): 
     ostype = getPlatformName()
     if ostype == "Darwin":
-        print "You\'re on a Mac, you can install using:"
-        print "brew tap ethereum/ethereum &&"
-        print "brew install ethereum"
+        print "     You\'re on a Mac, you can install using:"
+        print "         brew tap ethereum/ethereum &&"
+        print "         brew install ethereum"
     elif ostype == "Linux":
-        print "You\'re on a Linux variant, you can install using:"
-        print "  sudo add-apt-repository ppa:ethereum/ethereum-qt &&"
-        print "  sudo add-apt-repository ppa:ethereum/ethereum &&"
-        print "  sudo add-apt-repository ppa:ethereum/ethereum-dev &&"
-        print "  sudo apt-get update &&"
-        print "  sudo apt-get install cpp-ethereum &&"
-        print "  sudo apt-get install ethereum"
+        print "     You\'re on a Linux variant, you can install using:"
+        print "         sudo add-apt-repository ppa:ethereum/ethereum-qt &&"
+        print "         sudo add-apt-repository ppa:ethereum/ethereum &&"
+        print "         sudo add-apt-repository ppa:ethereum/ethereum-dev &&"
+        print "         sudo apt-get update &&"
+        print "         sudo apt-get install cpp-ethereum &&"
+        print "         sudo apt-get install ethereum"
     elif ostype == "Windows":
-        print "You\'re on Windows, but it is not yet supported. I\'m working on it though."
+        print "     You\'re on Windows, but it is not yet supported. I\'m working on it though."
     else: # This is not supported
-        print "Sorry, check the Ethereum docs for your Operating system"
+        print "     Sorry, check the Ethereum docs for your Operating system"
 
 # Checks whether Ethereum (Geth) is installed
 def checkEthereum():
-    print "Sorry not yet implemented"
-    print os.popen("geth --help").read()
-    # if hash geth >/dev/null 2>&1 : 
-    #     print "No current installation of Ethereum"
-    installSteps()
-    # else
-    #     print "Already installed Ethereum, nice! Proceeding..."
+    print "Checking whether Ethereum (Geth) is installed..."
+    retcode =  os.system("geth --help >/dev/null 2>&1")
+    if retcode != 0: 
+        print " ...no current installation of Ethereum:"
+        installSteps()
+        print "     Exiting."
+        exit()
+    else:
+        print " ...already installed Ethereum, nice! Proceeding..."
     
 
-usage()
-checkEthereum()
+# usage()
+# checkEthereum()
 init()
