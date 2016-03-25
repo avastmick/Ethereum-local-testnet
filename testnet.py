@@ -1,11 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
+import sys
 import platform
-import pprint
 import os
 import json
 
 #######################################################################################
+#
+# Sets up a local private Ethereum testnet with a number of pre-configured nodes
+# 
+# See https://github.com/avastmick/ethereum-local-testnet/wiki
+# 
 # NOTE: Changes should only be required to this script if run in standalone mode
 #   - i.e. outside the repo structure
 # 
@@ -94,25 +99,6 @@ def getPlatformName():
     ostype = platform.system()
     return ostype
 
-# Help / Usage - just prints out to console
-def usage():
-    print "Usage:"
-    print "   testnet [param]"
-    print "params:"
-    print    "--create [node_num]: Creates a new testnet cluster of given size"
-    print    "--addacc [node_id] : Creates a account on the node. The first account is the coinbase account."
-    print    "--unlockacc [node_id] [account_no] : Unlocks the account given"
-    print    "--start [node_id] : Starts the local test node"
-    print    "--startall : Starts all the configured local test nodes"
-    print    "--stop [node_id] : Stops a given local test node"
-    print    "stopall : Stops all the running local test nodes"
-    print    "--attach [node_id] : attaches to a running node"
-    print    "--minestart [node_id] [cores] : starts the miner at a given node"
-    print    "--minestop [node_id] [cores] : stops the miner at a given node"
-    print    "--clean [node_id] : Removes the designated node data, removes it from cluster"
-    print    "--cleanall : Cleans the whole shebang. All nodes, back to the user account"
-    print    "--help -h : This message"
-
 # Sets up the configuration items if they don't exist or if the script is being used portably
 def getGenesisBlock():
     # Chck whether genesis_block is configured, else set up the genesis block file from default
@@ -193,7 +179,96 @@ def checkEthereum():
     else:
         print " ...already installed Ethereum, nice! Proceeding..."
     
+def create():
+    print "Creating..."    
+def addAcc():
+    print "Adding account..."    
+def unlockAcc():
+    print "Unlock account..."    
+def start(nodeID):
+    print "Starting..."    
+def startAll():
+    print "Starting all..."    
+def stop(nodeID):
+    print "Stopping..."    
+def stopAll():
+    print "Stopping all..."    
+def attach():
+    print "Attaching..."    
+def mine(stopStart, nodeID, cores):
+    print "Mining..."   
+def clean(nodeID):
+    print "Cleaning node ID: "+nodeID
+def cleanAll():
+    print "Cleaning all..."
+# Help / Usage - just prints out to console
+def usage():
+    print "     python testnet.py [param]"
+    print "     params:"
+    print "         --create [node_num]: Creates a new testnet cluster of given size"
+    print "         --addacc [node_id] : Creates a account on the node. The first account is the coinbase account."
+    print "         --unlockacc [node_id] [account_no] : Unlocks the account given"
+    print "         --start [node_id] : Starts the local test node"
+    print "         --startall : Starts all the configured local test nodes"
+    print "         --stop [node_id] : Stops a given local test node"
+    print "         --stopall : Stops all the running local test nodes"
+    print "         --attach [node_id] : attaches to a running node"
+    print "         --mine [stop|start] [node_id] [cores] : starts the miner at a given node"
+    print "         --minestop [node_id] [cores] : stops the miner at a given node"
+    print "         --clean [node_id] : Removes the designated node data, removes it from cluster"
+    print "         --cleanall : Cleans the whole shebang. All nodes, back to the user account"
+    print "         --help -h : This message"
+    exit()
 
-# usage()
-# checkEthereum()
-init()
+# Handles the commandline input
+def handleInput():
+    # Take any arguments put in
+    args = sys.argv
+    if len(args) > 1:
+        if args[1] == "--create":
+            create()
+        elif args[1] == "--addacc":
+            addAcc()
+        elif args[1] == "--unlockacc":
+            unlockAcc()
+        elif args[1] == "--start":
+            if len(args) == 3:
+                start(args[2])
+            else:
+                print "Correct usage: python testnet.py --start [nodeID - the node you want to start]."
+        elif args[1] == "--startall":
+            startAll()
+        elif args[1] == "--stop":
+            if len(args) == 3:
+                stop(args[2])
+            else:
+                print "Correct usage: python testnet.py --stop [nodeID - the node you want to stop]."
+        elif args[1] == "--stopall":
+            stopAll()
+        elif args[1] == "--attach":
+            attach()
+        elif args[1] == "--mine":
+            if len(args) == 5:
+                mine(args[2], args[3], args[4])
+            else:
+                print "Correct usage: python testnet.py --mine [start or stop] [nodeID] [the number of cores to be used]."
+        elif args[1] == "--clean":
+            if len(args) == 3:
+                clean(args[2])
+            else:
+                print "Correct usage: python testnet.py --clean [nodeID - the node you want to remove]."
+        elif args[1] == "--cleanall":
+            cleanAll()
+        elif args[1] == "--help":
+            usage()
+        else:
+            print "Check usage:"
+            usage()
+    else:
+        print "Check usage:"
+        usage()
+
+############################################################################################
+# Starts the script off
+###########################################################################################
+handleInput()
