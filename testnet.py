@@ -5,6 +5,7 @@ import platform
 import os
 import json
 import subprocess
+import re
 
 '''
 Sets up a local private Ethereum testnet with a number of pre-configured nodes
@@ -59,6 +60,7 @@ class TestnetConf:
             self.staticNodes = conf_params['staticNodes']
             self.password = conf_params['password']
             self.genesis_block = conf_params['genesis_block']
+            self.enode_lookup = conf_params['enode_lookup']
         else:  # Set defaults to allow portable usage
             self.ipAddress = "127.0.0.1"
             self.networkID = "9191"
@@ -85,6 +87,7 @@ class TestnetConf:
                                   '"extraData": "Custom Ethereum Genesis Block'
                                   ' for initiating a local test net", '
                                   '"gasLimit": "0xffffffff" }')
+            self.enode_lookup = "console.log(admin.nodeInfo.enode); exit();"
 
     def __str__(self):
         objStr = "Testnet Config: ipAddress: %s networkID: %s nodeIdentity: " \
@@ -96,28 +99,6 @@ class TestnetConf:
                   self.defaultDataDir, self.nonDefaultRootDir,
                   self.staticNodes, self.password, self.genesis_block)
         return objStr
-
-
-def config_decoder(json_obj):  # Serializes the testnet-config.json file
-    if json_obj is not None:
-        dict_json = {
-                    'ipAddress': json_obj['ipAddress'],
-                    'networkID': json_obj['networkID'],
-                    'nodeIdentity': json_obj['nodeIdentity'],
-                    'verbosity': json_obj['verbosity'],
-                    'ethPort': json_obj['ethPort'],
-                    'rpcPort': json_obj['rpcPort'],
-                    'nodeCount': json_obj['nodeCount'],
-                    'defaultDataDir': json_obj['defaultDataDir'],
-                    'nonDefaultRootDir': json_obj['nonDefaultRootDir'],
-                    'staticNodes': json_obj['staticNodes'],
-                    'password': json_obj['password'],
-                    'genesis_block': json_obj['genesis_block']
-                    }
-        return dict_json
-    else:
-        print "ERROR: todo"
-        return None
 
 confDir = "conf"  # The config directory - as a global
 testnetConf = TestnetConf()  # TestnetConf object
@@ -146,6 +127,19 @@ def genesisBlock():  # Check whether genesis_block.json exists.
         genesis_block = open(os.path.join(confDir, "testnet-config.json"), "w")
         genesis_block.write(testnetConf.genesis_block)
         genesis_block.close
+
+
+def enodeURLJS():  # Checks whether the enode lookup JS exists
+    if os.path.isfile(os.path.join(confDir, "enode_lookup.js")):
+        if DEBUG():
+            print "Enode lookup JS file exists."
+    else:
+        if DEBUG():
+            print "Wrote new Enode lookup JS file to: " + \
+                    os.path.join(confDir, "enode_lookup.js")
+        enode_lookup = open(os.path.join(confDir, "enode_lookup.js"), "w")
+        enode_lookup.write(testnetConf.enode_lookup)
+        enode_lookup.close
 
 
 def init():  # Initialises config, via the JSON file, or  in-build defaults
@@ -184,6 +178,8 @@ def init():  # Initialises config, via the JSON file, or  in-build defaults
         exit()
     # Check the genesis_block file
     genesisBlock()
+    # Check the enode lookup Javascript
+    enodeURLJS()
     if DEBUG():
         print(testnetConf)
 
@@ -239,13 +235,10 @@ def create():  # Creates a clustered set of nodes
             " --identity "+testnetConf.nodeIdentity+str(i) + \
             " --port "+testnetConf.ethPort+str(i) + \
             " --rpcport "+testnetConf.rpcPort+str(i) +  \
-            " js <(echo 'console.log(admin.nodeInfo.enode); exit();') "
-
-        # if DEBUG():
-        print "Command to execute: " + ethCmd
+            " js " + os.path.join(confDir, "enode_lookup.js")
 
         # Call the command and handle the response
-        print "Creating " + str(i)
+        print "Creating nodeID: " + str(i)
         proc = subprocess.Popen(ethCmd,
                                 shell=True,
                                 stdin=subprocess.PIPE,
@@ -253,11 +246,15 @@ def create():  # Creates a clustered set of nodes
                                 stderr=subprocess.PIPE,
                                 )
         stdout_value, stderr_value = proc.communicate()
-
-        print '*** Geth output:', repr(stdout_value)
-        # print '++++ ERRORS:', repr(stderr_value)
-
-        exit()
+        # Check the output
+        retcode = proc.returncode
+        if retcode == 0:  # All is good, process the ennode URL and add to file
+            enodeURL = re.sub(r'\[\:\:\]', testnetConf.ipAddress, stdout_value)
+            # if DEBUG():
+            print 'Enode URL:', enodeURL
+        else:
+            print 'Create failed with the following errors:', repr(stderr_value)
+            exit()
 
 
     #     # Add this get the enode URL to add to the  static_nodes.json file

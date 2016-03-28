@@ -6,3 +6,5 @@
 **static-nodes.json*
 **.bak*
 **genesis_block.json*
+**enode_lookup.js*
+**scratchpad.*
