@@ -4,6 +4,7 @@ import sys
 import platform
 import os
 import json
+import subprocess
 
 '''
 Sets up a local private Ethereum testnet with a number of pre-configured nodes
@@ -45,7 +46,7 @@ The following values will be be present in the file.
 class TestnetConf:
 
     def __init__(self, *args, **conf_params):
-        if conf_params:
+        if conf_params:  # Typically this will be loading from a JSON file
             self.ipAddress = conf_params['ipAddress']
             self.networkID = conf_params['networkID']
             self.nodeIdentity = conf_params['nodeIdentity']
@@ -58,7 +59,7 @@ class TestnetConf:
             self.staticNodes = conf_params['staticNodes']
             self.password = conf_params['password']
             self.genesis_block = conf_params['genesis_block']
-        else:
+        else:  # Set defaults to allow portable usage
             self.ipAddress = "127.0.0.1"
             self.networkID = "9191"
             self.nodeIdentity = "private_"
@@ -97,8 +98,36 @@ class TestnetConf:
         return objStr
 
 
-confDir = "./conf/"  # The config directory - as a global
+def config_decoder(json_obj):  # Serializes the testnet-config.json file
+    if json_obj is not None:
+        dict_json = {
+                    'ipAddress': json_obj['ipAddress'],
+                    'networkID': json_obj['networkID'],
+                    'nodeIdentity': json_obj['nodeIdentity'],
+                    'verbosity': json_obj['verbosity'],
+                    'ethPort': json_obj['ethPort'],
+                    'rpcPort': json_obj['rpcPort'],
+                    'nodeCount': json_obj['nodeCount'],
+                    'defaultDataDir': json_obj['defaultDataDir'],
+                    'nonDefaultRootDir': json_obj['nonDefaultRootDir'],
+                    'staticNodes': json_obj['staticNodes'],
+                    'password': json_obj['password'],
+                    'genesis_block': json_obj['genesis_block']
+                    }
+        return dict_json
+    else:
+        print "ERROR: todo"
+        return None
+
+confDir = "conf"  # The config directory - as a global
 testnetConf = TestnetConf()  # TestnetConf object
+
+
+def DEBUG():  # Util - Checks the verbosity 
+    if testnetConf.verbosity > 4:
+        return True
+    else:
+        return False
 
 
 def getPlatformName():  # Util - gets the platform OS name (ostype)
@@ -107,11 +136,14 @@ def getPlatformName():  # Util - gets the platform OS name (ostype)
 
 
 def genesisBlock():  # Check whether genesis_block.json exists.
-    if os.path.isfile(confDir+"genesis_block.json"):
-        print "Node genesis block exists."
+    if os.path.isfile(os.path.join(confDir, "testnet-config.json")):
+        if DEBUG():
+            print "Node genesis block exists."
     else:
-        print "Wrote new genesis block file to: "+confDir+"genesis_block.json"
-        genesis_block = open(confDir+"genesis_block.json", "w")
+        if DEBUG():
+            print "Wrote new genesis block file to: " + \
+                    os.path.join(confDir, "testnet-config.json")
+        genesis_block = open(os.path.join(confDir, "testnet-config.json"), "w")
         genesis_block.write(testnetConf.genesis_block)
         genesis_block.close
 
@@ -122,11 +154,12 @@ def init():  # Initialises config, via the JSON file, or  in-build defaults
     # Set the testnetConf to global
     global testnetConf
     # the default location for the config JSON file will be in './conf'
-    testnetConfFile = confDir+"testnet-config.json"
+    testnetConfFile = os.path.join(confDir, "testnet-config.json")
     print "Checking config..."
     if os.path.isfile(testnetConfFile):
         with open(testnetConfFile) as testnet_config:
-            testnetConf = TestnetConf(json.load(testnet_config))
+            json_conf = json.load(testnet_config)
+            testnetConf = TestnetConf(**json_conf)
         print "     ...initialised from json file, good to go."
     else:
         print "     ...no configuration file found, using script defaults."
@@ -151,8 +184,7 @@ def init():  # Initialises config, via the JSON file, or  in-build defaults
         exit()
     # Check the genesis_block file
     genesisBlock()
-    # Bit of debug
-    if testnetConf.verbosity > 4:
+    if DEBUG():
         print(testnetConf)
 
 
@@ -193,25 +225,40 @@ def create():  # Creates a clustered set of nodes
     init()  # Should be all set up at this point
 
     for i in range(0, testnetConf.nodeCount):
-        print "Node: " + str(i)
         ethCmd = "geth " \
-                 "--genesis "+confDir+"genesis_block.json" \
+                 "--genesis " + os.path.join(confDir, "genesis_block.json") + \
                  " --nodiscover" \
                  " --verbosity " + str(testnetConf.verbosity)
 
         if i > 0:  # Then this is not the default node
-            ethCmd += " --datadir " + testnetConf.nonDefaultRootDir + "/" + str(i)
+            ethCmd += " --datadir " + \
+                        os.path.join(testnetConf.nonDefaultRootDir, str(i))
 
         ethCmd += \
             " --networkid "+testnetConf.networkID + \
             " --identity "+testnetConf.nodeIdentity+str(i) + \
             " --port "+testnetConf.ethPort+str(i) + \
             " --rpcport "+testnetConf.rpcPort+str(i) +  \
-            " js <(echo 'console.log(admin.nodeInfo.enode); exit();')"
+            " js <(echo 'console.log(admin.nodeInfo.enode); exit();') "
 
-        # Bit of debug
-        if testnetConf.verbosity > 4:
-            print ethCmd
+        # if DEBUG():
+        print "Command to execute: " + ethCmd
+
+        # Call the command and handle the response
+        print "Creating " + str(i)
+        proc = subprocess.Popen(ethCmd,
+                                shell=True,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                )
+        stdout_value, stderr_value = proc.communicate()
+
+        print '*** Geth output:', repr(stdout_value)
+        # print '++++ ERRORS:', repr(stderr_value)
+
+        exit()
+
 
     #     # Add this get the enode URL to add to the  static_nodes.json file
     #     enode="$(bash -c "$createcmd" 2> $_datadir/eth.log)"
@@ -258,6 +305,8 @@ def attach(nodeID):  # Runs geth --attach against a given node
 
 
 def mine(stopStart, nodeID, cores):  # Starts a miner at a node
+    # See https://gist.github.com/makevoid/701d516182e38658f5d0 for loading
+    # Javascript that will start mining if transactions are found...
     print "Mining..."
 
 
