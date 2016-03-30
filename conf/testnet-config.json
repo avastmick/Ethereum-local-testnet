@@ -6,7 +6,7 @@
     "verbosity" : 3,
     "ethPort" : "3080",
     "rpcPort" : "890",
-    "nodeCount" : 1,
+    "nodeCount" : 3,
     "defaultDataDir" : "",
     "nonDefaultRootDir" : "",
     "staticNodes" : "static-nodes.json",

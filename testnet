@@ -118,7 +118,7 @@ function set_default_datadir {
 }
 # addEnodeToNode [enodeURL]
 function addToStaticNodes {
-        static_nodes_new="conf/$static_nodes-new"
+        static_nodes_new="conf/$static_nodes"
 
         if [ $1 == 1 ]; then
             echo Starting new file static_nodes file with $num_nodes nodes in cluster
@@ -326,7 +326,7 @@ function cleanall {
         rm -rf "$HOME/.ethash"
     fi
 
-    rm $conf/static-nodes.json-new
+    rm $conf/static-nodes.json
 
     echo ...done.
 }

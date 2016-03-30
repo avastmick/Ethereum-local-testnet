@@ -4,8 +4,10 @@ import sys
 import platform
 import os
 import json
+import multiprocessing
 import subprocess
 import re
+import shutil
 
 '''
 Sets up a local private Ethereum testnet with a number of pre-configured nodes
@@ -142,6 +144,28 @@ def enodeURLJS():  # Checks whether the enode lookup JS exists
         enode_lookup.close
 
 
+def writePIDFile(node_id, PID):  # Writes PID to file.
+    pathToPID = ""
+    if node_id > 0:  # Then this is NOT the default node
+            pathToPID = os.path.join(testnetConf.nonDefaultRootDir,
+                                     str(node_id))
+    else:  # This is the default
+            pathToPID = testnetConf.defaultDataDir
+
+    if os.path.isfile(os.path.join(pathToPID, "pid_file")):
+        print "PID file exists! Check whether process is running" + \
+              " for process id: " + str(PID) + \
+              ". Exiting."
+        exit()
+    else:  # No PID continue
+        if DEBUG():
+            print "Wrote PID, " + str(PID) + ", to file: " + \
+                    os.path.join(pathToPID, "pid_file")
+        pid_file = open(os.path.join(pathToPID, "pid_file"), "w")
+        pid_file.write(str(PID))
+        pid_file.close
+
+
 def init():  # Initialises config, via the JSON file, or  in-build defaults
     # First check whether Ethereum is installed
     checkEthereum()
@@ -162,10 +186,10 @@ def init():  # Initialises config, via the JSON file, or  in-build defaults
     ostype = getPlatformName()
     if ostype == "Darwin":
         testnetConf.defaultDataDir = \
-            os.path.expanduser("~/Library/Ethereum/geth.ipc")
+            os.path.expanduser("~/Library/Ethereum")
         testnetConf.nonDefaultRootDir = "/tmp/"+testnetConf.networkID
     elif ostype == "Linux":
-        testnetConf.defaultDataDir = os.path.expanduser("~/.ethereum/geth.ipc")
+        testnetConf.defaultDataDir = os.path.expanduser("~/.ethereum")
         testnetConf.nonDefaultRootDir = "/tmp/"+testnetConf.networkID
     elif ostype == "Windows":
         testnetConf.defaultDataDir = \
@@ -216,29 +240,45 @@ def checkEthereum():  # Checks whether Ethereum (Geth) is installed
         print " ...already installed Ethereum, nice! Proceeding..."
 
 
+def writeStaticNodes(enodes):  # Writes to the static nodes file
+    if DEBUG():
+        print "Writing enode to static nodes file: " + enodes
+    if os.path.isfile(os.path.join(confDir, testnetConf.staticNodes)):
+        if DEBUG():
+            print "Static nodes file exists, overwriting."
+    else:
+        if DEBUG():
+            print "Writing new static nodes file to: " + \
+                    os.path.join(confDir, testnetConf.staticNodes)
+    staticNodes = \
+        open(os.path.join(confDir, testnetConf.staticNodes), "w")
+    staticNodes.write(enodes)
+    staticNodes.close
+
+
 def create():  # Creates a clustered set of nodes
     print "Creating..."
     init()  # Should be all set up at this point
-
-    for i in range(0, testnetConf.nodeCount):
+    global enodes
+    for node_id in range(0, testnetConf.nodeCount):
         ethCmd = "geth " \
                  "--genesis " + os.path.join(confDir, "genesis_block.json") + \
                  " --nodiscover" \
                  " --verbosity " + str(testnetConf.verbosity)
 
-        if i > 0:  # Then this is not the default node
+        if node_id > 0:  # Then this is not the default node
             ethCmd += " --datadir " + \
-                        os.path.join(testnetConf.nonDefaultRootDir, str(i))
+                        os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
 
         ethCmd += \
             " --networkid "+testnetConf.networkID + \
-            " --identity "+testnetConf.nodeIdentity+str(i) + \
-            " --port "+testnetConf.ethPort+str(i) + \
-            " --rpcport "+testnetConf.rpcPort+str(i) +  \
+            " --identity "+testnetConf.nodeIdentity+str(node_id) + \
+            " --port "+testnetConf.ethPort+str(node_id) + \
+            " --rpcport "+testnetConf.rpcPort+str(node_id) +  \
             " js " + os.path.join(confDir, "enode_lookup.js")
 
         # Call the command and handle the response
-        print "Creating nodeID: " + str(i)
+        print "Creating nodeID: " + str(node_id)
         proc = subprocess.Popen(ethCmd,
                                 shell=True,
                                 stdin=subprocess.PIPE,
@@ -249,40 +289,122 @@ def create():  # Creates a clustered set of nodes
         # Check the output
         retcode = proc.returncode
         if retcode == 0:  # All is good, process the ennode URL and add to file
+            # TODO: TRIM trailing whitespace / carriage returns...
             enodeURL = re.sub(r'\[\:\:\]', testnetConf.ipAddress, stdout_value)
-            # if DEBUG():
-            print 'Enode URL:', enodeURL
+            enodeURL = enodeURL.strip()
+            if DEBUG():
+                print 'Enode URL:', enodeURL
         else:
             print 'Create failed with the following errors:', repr(stderr_value)
             exit()
+        # Construct the enodeURL string to write to the static nodes file
+        if node_id == 0:
+            enodes = "[ \n"
+        enodes += '"' + enodeURL + '"'
+        if node_id == (testnetConf.nodeCount - 1):  # final node to write
+            enodes += " \n]"
+        else:
+            enodes += ",\n"
+
+        # Write this to the static nodes file
+        writeStaticNodes(enodes)
+
+        print "Setting coinbase to node"
+        addAcc(node_id)
+
+    # Now start them up, each will copy over the static nodes file to data dir
+    for i in range(0, testnetConf.nodeCount):
+        start(i)
 
 
-    #     # Add this get the enode URL to add to the  static_nodes.json file
-    #     enode="$(bash -c "$createcmd" 2> $_datadir/eth.log)"
-    #     # Trim the query string
-    #     enodeurl=$( echo $enode | perl -pe "s/\[\:\:\]/$ip_addr/g" | perl -pe "s/^/\"/; s/\s*$/\"/;" )
-    #     addToStaticNodes $i $enodeurl
+def addAcc(node_id):  # Adds an account to a node TODO
+    print "Adding account: TODO check passwd file..."
+    # Need to check passwd file is in conf, or write new one
+    # TODO:
 
-    #     echo Setting coinbase to node
-    #     addacc $i 2>/dev/null
-
-    # done
-    # # Now start them up
-    # for ((i=1;i<=num_nodes;++i)); do
-    #     start $i
-    # done
-
-
-def addAcc(nodeID):  # Adds an account to a node
-    print "Adding account..."
+    ethCmd = "geth " \
+             " --networkid "+testnetConf.networkID + \
+             " --identity "+testnetConf.nodeIdentity+str(node_id) + \
+             " --port "+testnetConf.ethPort+str(node_id) + \
+             " --rpcport "+testnetConf.rpcPort+str(node_id) + \
+             " --verbosity " + str(testnetConf.verbosity) + \
+             " --password " + os.path.join(confDir, "testnet-pwd")
+    if node_id > 0:  # Then this is not the default node
+            ethCmd += " --datadir " + \
+                    os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
+    ethCmd += " account new"
+    proc = subprocess.Popen(ethCmd,
+                            shell=True,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            )
+    stdout_value, stderr_value = proc.communicate()
+    # Check the output
+    retcode = proc.returncode
+    if retcode == 0:
+        print "Added new account for node ID: " + str(node_id) + \
+                ", " + stdout_value
+    else:
+        print 'Adding account failed with the following errors:', repr(stderr_value)
+        exit()
 
 
 def unlockAcc():  # Unlocks a specified account
-    print "Unlock account..."
+    print "Unlock account... TODO"
 
 
-def start(nodeID):  # Starts up a specified node
-    print "Starting..."
+def getlines(fd):
+    line = bytearray()
+    c = None
+    while True:
+        c = fd.read(1)
+        if c is None:
+            return
+        line += c
+        if c == '\n':
+            yield str(line)
+            del line[:]  # Handler to manage STDERR output, for debugging
+
+
+def startEthAsSub(cmd):  # Spawns a subprocess
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         shell=True)
+    for line in getlines(p.stdout):
+        if DEBUG():
+            print line
+        if "IPC endpoint opened" in line:
+            print "STARTUP OK"
+            break
+    else:
+        print "STARTUP FAILED"
+
+
+def start(node_id):  # Starts up a specified node
+    print "Starting... " + str(node_id)
+    ethCmd = "geth " \
+             " --networkid "+testnetConf.networkID + \
+             " --identity "+testnetConf.nodeIdentity+str(node_id) + \
+             " --port "+testnetConf.ethPort+str(node_id) + \
+             " --rpcport "+testnetConf.rpcPort+str(node_id) + \
+             " --verbosity " + str(testnetConf.verbosity) + \
+             " --nodiscover"
+    if node_id > 0:  # Then this is not the default node
+            ethCmd += " --datadir " + \
+                    os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
+            shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
+                        os.path.join(testnetConf.nonDefaultRootDir,
+                                     str(node_id)))
+    else:  # This is the default, cp the static_nodes file to default
+        shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
+                    testnetConf.defaultDataDir)
+    # Start up...
+    p = multiprocessing.Process(target=startEthAsSub, args=(ethCmd,))
+    p.start()
+    p.join()
+    print "Node, " + str(node_id) + ", started with PID: "+str(p.pid)
+    # Write PID to root of data_dir
+    writePIDFile(node_id, p.pid)
 
 
 def startAll():  # Starts all nodes in the cluster
@@ -291,6 +413,8 @@ def startAll():  # Starts all nodes in the cluster
 
 def stop(nodeID):  # Stops a specified node
     print "Stopping..."
+    # os.kill(proc.pid, signal.SIGUSR1)
+    # os.remove() will remove a file (for PID)
 
 
 def stopAll():  # Stops all nodes in the cluster
@@ -309,10 +433,13 @@ def mine(stopStart, nodeID, cores):  # Starts a miner at a node
 
 def clean(nodeID):  # Removes the data for a given node
     print "Cleaning node ID: "+nodeID
+    # os.remove() will remove a file.
 
 
 def cleanAll():  # Removes all node data in the cluster
     print "Cleaning all..."
+    # os.rmdir() will remove an empty directory.
+    # shutil.rmtree() will delete a directory and all its contents.
 
 
 def usage():  # Help / Usage - just prints out to console
