@@ -167,7 +167,7 @@ def writePIDFile(node_id, PID):  # Writes PID to file.
         pid_file.close
 
 
-def init():  # Initialises config, via the JSON file, or  in-build defaults
+def init():  # Initialises config TODO: handle on screen messages
     # First check whether Ethereum is installed
     checkEthereum()
     # Set the testnetConf to global
@@ -229,7 +229,8 @@ def installSteps():  # Instructions on how to install Ethereum for specific OS
         print "     Sorry, check the Ethereum docs for your Operating system"
 
 
-def checkEthereum():  # Checks whether Ethereum (Geth) is installed
+# TODO: handle on screen messages
+def checkEthereum():  # Checks whether Ethereum is installed
     print "Checking whether Ethereum (Geth) is installed..."
     # TODO Make platform independent
     retcode = os.system("geth --help >/dev/null 2>&1")
@@ -405,7 +406,7 @@ def start(node_id):  # Starts up a specified node
         shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
                     testnetConf.defaultDataDir)
     # Start up...
-    ethCmd = ethCmd.split(' ')
+    ethCmd = ethCmd.split(' ')  # Create an array to pass the arguments nicely
     p = multiprocessing.Process(target=startEthAsSub, args=(node_id, ethCmd,))
     p.start()
     p.join()
@@ -461,19 +462,28 @@ def mine(stopStart, node_id, cores):  # Starts a miner at a node
     print "Mining... TODO"
 
 
-def clean(node_id):  # Removes the data for a given node
+def clean(node_id):  # Removes a given node TODO: handle static nodes
     print "Cleaning node ID: "+node_id
-    # os.remove() will remove a file.
     if int(node_id) > 0:  # Then this is NOT the default node
-        print "Set node: " + node_id
+        nodeDir = os.path.join(testnetConf.nonDefaultRootDir, node_id)
+        print "Deleting " + nodeDir
+        shutil.rmtree(nodeDir)
     else:  # This is the default
-        print "Set default node: " + node_id
+        print "Deleting " + testnetConf.defaultDataDir
+        shutil.rmtree(testnetConf.defaultDataDir)
 
 
 def cleanAll():  # Removes all node data in the cluster
     print "Cleaning all..."
-    # os.rmdir() will remove an empty directory.
-    # shutil.rmtree() will delete a directory and all its contents.
+    print "Deleting " + testnetConf.nonDefaultRootDir
+    shutil.rmtree(testnetConf.nonDefaultRootDir)
+
+    print "Deleting " + testnetConf.defaultDataDir
+    shutil.rmtree(testnetConf.defaultDataDir)
+
+    # Finally, delete the static-nodes json file as it's invalid nowos.path.join(confDir, testnetConf.staticNodes)
+    print "Deleting " + os.path.join(confDir, testnetConf.staticNodes)
+    os.remove(os.path.join(confDir, testnetConf.staticNodes))
 
 
 def usage():  # Help / Usage - just prints out to console
