@@ -2,6 +2,10 @@
 
 # Sets up a local private Ethereum testnet - this should be good for any unix install with bash
 # See https://github.com/avastmick/ethereum-local-testnet/wiki
+# This script will be in-step with the cross-platform implpementation (Python) as it is useful for
+# usage within containers and avoids further installation on an image of software
+# 
+# TODO: implement mining and unlocking of accounts
 
 # Logging level: 1, none, 6 debug
 verbosity=6
@@ -29,7 +33,7 @@ static_nodes="/static-nodes.json"
 # conf
 conf=./conf
 # Create a master, generic password - note this a private, testnet, so don't sweat too much here
-password=testpwd-01
+password=testpwd
 
 # Help
 function usage {
@@ -40,8 +44,8 @@ function usage {
     echo    --addacc [node_id] : Creates a account on the node. The first account is the coinbase account.
     echo    --unlockacc [node_id] [account_no] : Unlocks the account given
     echo    --start [node_id] : Starts the local test node
-    echo    --startall : Starts all the configured local test nodes
     echo    --stop [node_id] : Stops a given local test node
+    echo    --startall : Starts all the configured local test nodes
     echo    --stopall : Stops all the running local test nodes
     echo    --attach [node_id] : attaches to a running node
     echo    --minestart [node_id] [cores] : starts the miner at a given node
@@ -71,7 +75,7 @@ function install-steps {
 }
 function checkEthereum {
 
-    if [ hash geth >/dev/null 2>&1 || hash eth >/dev/null 2>&1 ]; then
+    if [ hash geth >/dev/null 2>&1 ]; then
         echo No current installation of Ethereum
         install-steps
     else
@@ -114,7 +118,7 @@ function set_default_datadir {
 }
 # addEnodeToNode [enodeURL]
 function addToStaticNodes {
-        static_nodes_new="conf/$static_nodes-new"
+        static_nodes_new="conf/$static_nodes"
 
         if [ $1 == 1 ]; then
             echo Starting new file static_nodes file with $num_nodes nodes in cluster
@@ -322,7 +326,7 @@ function cleanall {
         rm -rf "$HOME/.ethash"
     fi
 
-    rm $conf/static-nodes.json-new
+    rm $conf/static-nodes.json
 
     echo ...done.
 }

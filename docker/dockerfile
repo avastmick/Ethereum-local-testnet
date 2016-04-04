@@ -1,0 +1,17 @@
+FROM ethereum/client-go
+
+MAINTAINER avastmick
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && \
+    apt-get install -q -y git
+    # Now clone the ethereum-local-testnet repo
+
+    # And run testnet
+    
+# what ports
+EXPOSE 8545
+EXPOSE 30303
+
+ENTRYPOINT ["/bin/bash"]

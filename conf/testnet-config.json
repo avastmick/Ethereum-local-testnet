@@ -1,0 +1,17 @@
+{
+    "__type__": "TestnetConf",
+    "clientName" : "geth",
+    "ipAddress" : "127.0.0.1",
+    "networkID" : "9191",
+    "nodeIdentity" : "private_",
+    "verbosity" : 3,
+    "ethPort" : "3080",
+    "rpcPort" : "890",
+    "nodeCount" : 3,
+    "defaultDataDir" : "",
+    "nonDefaultRootDir" : "",
+    "staticNodes" : "static-nodes.json",
+    "password" : "testpwd",
+    "genesis_block" : { "nonce": "0x0000000000000042", "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000", "difficulty": "0x4000", "alloc": {}, "coinbase": "0x0000000000000000000000000000000000000000", "timestamp": "0x00", "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000", "extraData": "Custom Ethereum Genesis Block for initiating a local test net", "gasLimit": "0xffffffff" },
+    "enode_lookup" : "console.log(admin.nodeInfo.enode); exit();"
+}
