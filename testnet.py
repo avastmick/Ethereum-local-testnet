@@ -3,6 +3,7 @@
 import sys
 import platform
 import os
+import signal
 import json
 import multiprocessing
 import subprocess
@@ -153,7 +154,7 @@ def writePIDFile(node_id, PID):  # Writes PID to file.
             pathToPID = testnetConf.defaultDataDir
 
     if os.path.isfile(os.path.join(pathToPID, "pid_file")):
-        print "PID file exists! Check whether process is running" + \
+        print "PID file exists! Check whether process is already running" + \
               " for process id: " + str(PID) + \
               ". Exiting."
         exit()
@@ -230,6 +231,7 @@ def installSteps():  # Instructions on how to install Ethereum for specific OS
 
 def checkEthereum():  # Checks whether Ethereum (Geth) is installed
     print "Checking whether Ethereum (Geth) is installed..."
+    # TODO Make platform independent
     retcode = os.system("geth --help >/dev/null 2>&1")
     if retcode != 0:
         print " ...no current installation of Ethereum:"
@@ -258,7 +260,6 @@ def writeStaticNodes(enodes):  # Writes to the static nodes file
 
 def create():  # Creates a clustered set of nodes
     print "Creating..."
-    init()  # Should be all set up at this point
     global enodes
     for node_id in range(0, testnetConf.nodeCount):
         ethCmd = "geth " \
@@ -312,9 +313,8 @@ def create():  # Creates a clustered set of nodes
         print "Setting coinbase to node"
         addAcc(node_id)
 
-    # Now start them up, each will copy over the static nodes file to data dir
-    for i in range(0, testnetConf.nodeCount):
-        start(i)
+    # Start up all the nodes
+    startAll()
 
 
 def addAcc(node_id):  # Adds an account to a node TODO
@@ -354,7 +354,7 @@ def unlockAcc():  # Unlocks a specified account
     print "Unlock account... TODO"
 
 
-def getlines(fd):
+def getlines(fd):  # Util handler to manage STDERR output, for debugging
     line = bytearray()
     c = None
     while True:
@@ -364,17 +364,23 @@ def getlines(fd):
         line += c
         if c == '\n':
             yield str(line)
-            del line[:]  # Handler to manage STDERR output, for debugging
+            del line[:]  
 
 
-def startEthAsSub(cmd):  # Spawns a subprocess
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         shell=True)
+def startEthAsSub(node_id, cmd):  # Spawns a subprocess - pipe to log file TODO
+    if DEBUG():
+        print "Command to run: " + ' '.join(cmd)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT,
+                         shell=False)
     for line in getlines(p.stdout):
         if DEBUG():
             print line
         if "IPC endpoint opened" in line:
             print "STARTUP OK"
+            print "Node, " + str(node_id) + ", started with PID: "+str(p.pid)
+            # Write PID to root of data_dir
+            writePIDFile(node_id, p.pid)
             break
     else:
         print "STARTUP FAILED"
@@ -382,7 +388,7 @@ def startEthAsSub(cmd):  # Spawns a subprocess
 
 def start(node_id):  # Starts up a specified node
     print "Starting... " + str(node_id)
-    ethCmd = "geth " \
+    ethCmd = "/usr/bin/geth" + \
              " --networkid "+testnetConf.networkID + \
              " --identity "+testnetConf.nodeIdentity+str(node_id) + \
              " --port "+testnetConf.ethPort+str(node_id) + \
@@ -399,41 +405,69 @@ def start(node_id):  # Starts up a specified node
         shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
                     testnetConf.defaultDataDir)
     # Start up...
-    p = multiprocessing.Process(target=startEthAsSub, args=(ethCmd,))
+    ethCmd = ethCmd.split(' ')
+    p = multiprocessing.Process(target=startEthAsSub, args=(node_id, ethCmd,))
     p.start()
     p.join()
-    print "Node, " + str(node_id) + ", started with PID: "+str(p.pid)
-    # Write PID to root of data_dir
-    writePIDFile(node_id, p.pid)
 
 
 def startAll():  # Starts all nodes in the cluster
-    print "Starting all..."
+    print "Starting " + str(testnetConf.nodeCount) + " nodes."
+    for i in range(0, testnetConf.nodeCount):
+        start(i)
 
 
-def stop(nodeID):  # Stops a specified node
-    print "Stopping..."
-    # os.kill(proc.pid, signal.SIGUSR1)
-    # os.remove() will remove a file (for PID)
+def stop(node_id):  # Stops a specified node
+    print "Stopping node, id: " + str(node_id)
+    # pathToPID = ""
+    global pathToPID
+    if int(node_id) > 0:  # Then this is NOT the default node
+        pathToPID = os.path.join(testnetConf.nonDefaultRootDir,
+                                 str(node_id))
+        print "Set path to pid: " + pathToPID
+    else:  # This is the default
+        pathToPID = testnetConf.defaultDataDir
+        print "Set path to pid: " + pathToPID
+    pid = open(os.path.join(pathToPID, "pid_file")).read()
+    print "PID to stop: " + pid
+    # Have the PID, no check platform and kill
+    ostype = getPlatformName()
+    if ostype == "Darwin" or ostype == "Linux":
+        try:
+            os.kill(int(pid), signal.SIGKILL)
+        except OSError as e:
+            print "No process running of PID: " + pid
+    elif ostype == "Windows":
+        print "On WiNDOWS: TODO"
+        # subprocess.Popen("taskkill /F /T /PID %i"%pid , shell=True)
+    # Remove the pid file
+    print "Removing pid file at: " + os.path.join(pathToPID, "pid_file")
+    os.remove(os.path.join(pathToPID, "pid_file"))  # remove PID file
 
 
 def stopAll():  # Stops all nodes in the cluster
-    print "Stopping all..."
+    print "Stopping " + str(testnetConf.nodeCount) + " nodes."
+    for i in range(0, testnetConf.nodeCount):
+        stop(i)
 
 
-def attach(nodeID):  # Runs geth --attach against a given node
-    print "Attaching..."
+def attach(node_id):  # Runs geth --attach against a given node
+    print "Attaching... TODO"
 
 
-def mine(stopStart, nodeID, cores):  # Starts a miner at a node
+def mine(stopStart, node_id, cores):  # Starts a miner at a node
     # See https://gist.github.com/makevoid/701d516182e38658f5d0 for loading
-    # Javascript that will start mining if transactions are found...
-    print "Mining..."
+    #   Javascript that will start mining if transactions are found...
+    print "Mining... TODO"
 
 
-def clean(nodeID):  # Removes the data for a given node
-    print "Cleaning node ID: "+nodeID
+def clean(node_id):  # Removes the data for a given node
+    print "Cleaning node ID: "+node_id
     # os.remove() will remove a file.
+    if int(node_id) > 0:  # Then this is NOT the default node
+        print "Set node: " + node_id
+    else:  # This is the default
+        print "Set default node: " + node_id
 
 
 def cleanAll():  # Removes all node data in the cluster
@@ -465,27 +499,34 @@ def handleInput():  # Handles the commandline input
     args = sys.argv
     if len(args) > 1:
         if args[1] == "--create":
+            init()  # Should be all set up at this point
             create()
         elif args[1] == "--addacc":
             if len(args) == 3:
+                init()  # Should be all set up at this point
                 addacc(args[2])
             else:
                 print "Correct usage: python testnet.py --addacc [nodeID]."
         elif args[1] == "--unlockacc":
+            init()  # Should be all set up at this point
             unlockAcc()
         elif args[1] == "--start":
             if len(args) == 3:
+                init()  # Should be all set up at this point
                 start(args[2])
             else:
                 print "Correct usage: python testnet.py --start [nodeID]."
         elif args[1] == "--startall":
+            init()  # Should be all set up at this point
             startAll()
         elif args[1] == "--stop":
             if len(args) == 3:
+                init()  # Should be all set up at this point
                 stop(args[2])
             else:
                 print "Correct usage: python testnet.py --stop [nodeID]."
         elif args[1] == "--stopall":
+            init()  # Should be all set up at this point
             stopAll()
         elif args[1] == "--attach":
             if len(args) == 3:
@@ -504,6 +545,7 @@ def handleInput():  # Handles the commandline input
             else:
                 print "Correct usage: python testnet.py --clean [nodeID]."
         elif args[1] == "--cleanall":
+            init()  # Should be all set up at this point
             cleanAll()
         elif args[1] == "--help":
             usage()
