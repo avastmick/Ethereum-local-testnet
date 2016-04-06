@@ -469,7 +469,7 @@ def stopAll():  # Stops all nodes in the cluster
 def attach(node_id):  # Runs geth --attach against a given node
     print "Attaching... "
     ethCmd = "geth attach ipc:"
-    if node_id > 0:  # Then this is not the default node
+    if int(node_id) > 0:  # Then this is not the default node
         ethCmd += \
                 os.path.join(testnetConf.nonDefaultRootDir,
                              str(node_id),
