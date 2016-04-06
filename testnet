@@ -133,6 +133,11 @@ function addToStaticNodes {
 }
 # Create [num_nodes]
 function create {
+    echo "CREATE CURRENTLY BROKEN DUE TO DEPRECATED USE OF '--genesis' flag in Geth 1.4.x"
+    echo "Using the Python version instead"
+    python testnet.py --create
+    exit
+
     echo Checking that Ethereum is installed
     checkEthereum
     configure

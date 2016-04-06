@@ -51,6 +51,7 @@ class TestnetConf:
 
     def __init__(self, *args, **conf_params):
         if conf_params:  # Typically this will be loading from a JSON file
+            self.client = conf_params['client']
             self.ipAddress = conf_params['ipAddress']
             self.networkID = conf_params['networkID']
             self.nodeIdentity = conf_params['nodeIdentity']
@@ -62,9 +63,10 @@ class TestnetConf:
             self.nonDefaultRootDir = conf_params['nonDefaultRootDir']
             self.staticNodes = conf_params['staticNodes']
             self.password = conf_params['password']
-            self.genesis_block = conf_params['genesis_block']
+            self.genesis_block = conf_params['genesis_block']  # Note loaded as serialized obj
             self.enode_lookup = conf_params['enode_lookup']
         else:  # Set defaults to allow portable usage
+            self.client = "geth"  # Default is Geth
             self.ipAddress = "127.0.0.1"
             self.networkID = "9191"
             self.nodeIdentity = "private_"
@@ -107,7 +109,7 @@ confDir = "conf"  # The config directory - as a global
 testnetConf = TestnetConf()  # TestnetConf object
 
 
-def DEBUG():  # Util - Checks the verbosity 
+def DEBUG():  # Util - Checks the verbosity
     if testnetConf.verbosity > 4:
         return True
     else:
@@ -120,15 +122,15 @@ def getPlatformName():  # Util - gets the platform OS name (ostype)
 
 
 def genesisBlock():  # Check whether genesis_block.json exists.
-    if os.path.isfile(os.path.join(confDir, "testnet-config.json")):
+    if os.path.isfile(os.path.join(confDir, "genesis_block.json")):
         if DEBUG():
             print "Node genesis block exists."
-    else:
+    else:  # Fresh usage - create from the JSON data in the TestnetConf obj
         if DEBUG():
-            print "Wrote new genesis block file to: " + \
-                    os.path.join(confDir, "testnet-config.json")
-        genesis_block = open(os.path.join(confDir, "testnet-config.json"), "w")
-        genesis_block.write(testnetConf.genesis_block)
+            print "Writing new genesis block file to: " + \
+                    os.path.join(confDir, "genesis_block.json")
+        genesis_block = open(os.path.join(confDir, "genesis_block.json"), "w")
+        genesis_block.write(json.dumps(testnetConf.genesis_block))
         genesis_block.close
 
 
@@ -141,6 +143,8 @@ def enodeURLJS():  # Checks whether the enode lookup JS exists
             print "Wrote new Enode lookup JS file to: " + \
                     os.path.join(confDir, "enode_lookup.js")
         enode_lookup = open(os.path.join(confDir, "enode_lookup.js"), "w")
+        if DEBUG():
+                print "Enode JS: " + testnetConf.enode_lookup
         enode_lookup.write(testnetConf.enode_lookup)
         enode_lookup.close
 
@@ -259,28 +263,46 @@ def writeStaticNodes(enodes):  # Writes to the static nodes file
     staticNodes.close
 
 
+def createEthCmd(node_id):  # Creates a viable cmd to create / start a node
+    ethCmd = testnetConf.client + \
+             " --networkid "+testnetConf.networkID + \
+             " --identity "+testnetConf.nodeIdentity+str(node_id) + \
+             " --port "+testnetConf.ethPort+str(node_id) + \
+             " --rpcport "+testnetConf.rpcPort+str(node_id) + \
+             " --verbosity " + str(testnetConf.verbosity) + \
+             " --nodiscover"
+    if node_id > 0:  # Then this is not the default node
+            ethCmd += " --datadir " + \
+                    os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
+    return ethCmd
+
+
+def initNode(ethCmd):  # From Geth 1.4 --genesis is deprecated in favour of init
+    print "Initialising node"
+    ethCmd += " init " + os.path.join(confDir, "genesis_block.json")
+    proc = subprocess.Popen(ethCmd,
+                            shell=True,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            )
+    stdout_value, stderr_value = proc.communicate()
+
+
 def create():  # Creates a clustered set of nodes
     print "Creating..."
     global enodes
     for node_id in range(0, testnetConf.nodeCount):
-        ethCmd = "geth " \
-                 "--genesis " + os.path.join(confDir, "genesis_block.json") + \
-                 " --nodiscover" \
-                 " --verbosity " + str(testnetConf.verbosity)
+        ethCmd = createEthCmd(node_id)
+        # First set up the node using the genesis block
+        initNode(ethCmd)
 
-        if node_id > 0:  # Then this is not the default node
-            ethCmd += " --datadir " + \
-                        os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
-
+        # Now lookup the created node enode URL
         ethCmd += \
-            " --networkid "+testnetConf.networkID + \
-            " --identity "+testnetConf.nodeIdentity+str(node_id) + \
-            " --port "+testnetConf.ethPort+str(node_id) + \
-            " --rpcport "+testnetConf.rpcPort+str(node_id) +  \
-            " js " + os.path.join(confDir, "enode_lookup.js")
+            " js " + os.path.join(confDir, "enode_lookup.js")  
 
         # Call the command and handle the response
-        print "Creating nodeID: " + str(node_id)
+        print "Getting enode URL for nodeID: " + str(node_id)
         proc = subprocess.Popen(ethCmd,
                                 shell=True,
                                 stdin=subprocess.PIPE,
@@ -351,7 +373,8 @@ def addAcc(node_id):  # Adds an account to a node TODO
         exit()
 
 
-def unlockAcc():  # Unlocks a specified account
+# TODO Implement using a JS load
+def unlockAcc():  # TODO Unlocks a specified account
     print "Unlock account... TODO"
 
 
@@ -372,8 +395,7 @@ def startEthAsSub(node_id, cmd):  # Spawns a subprocess - pipe to log file TODO
     if DEBUG():
         print "Command to run: " + ' '.join(cmd)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT,
-                         shell=False)
+                         stderr=subprocess.STDOUT)
     for line in getlines(p.stdout):
         if DEBUG():
             print line
@@ -389,19 +411,11 @@ def startEthAsSub(node_id, cmd):  # Spawns a subprocess - pipe to log file TODO
 
 def start(node_id):  # Starts up a specified node
     print "Starting... " + str(node_id)
-    ethCmd = "/usr/bin/geth" + \
-             " --networkid "+testnetConf.networkID + \
-             " --identity "+testnetConf.nodeIdentity+str(node_id) + \
-             " --port "+testnetConf.ethPort+str(node_id) + \
-             " --rpcport "+testnetConf.rpcPort+str(node_id) + \
-             " --verbosity " + str(testnetConf.verbosity) + \
-             " --nodiscover"
-    if node_id > 0:  # Then this is not the default node
-            ethCmd += " --datadir " + \
-                    os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
-            shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
-                        os.path.join(testnetConf.nonDefaultRootDir,
-                                     str(node_id)))
+    ethCmd = ethCmd = createEthCmd(node_id)
+    if node_id > 0:  # Copy over static nodes
+        shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
+                    os.path.join(testnetConf.nonDefaultRootDir,
+                                 str(node_id)))
     else:  # This is the default, cp the static_nodes file to default
         shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
                     testnetConf.defaultDataDir)
@@ -436,7 +450,7 @@ def stop(node_id):  # Stops a specified node
     if ostype == "Darwin" or ostype == "Linux":
         try:
             os.kill(int(pid), signal.SIGKILL)
-        except OSError as e:
+        except OSError:
             print "No process running of PID: " + pid
     elif ostype == "Windows":
         print "On WiNDOWS: TODO"
@@ -453,13 +467,28 @@ def stopAll():  # Stops all nodes in the cluster
 
 
 def attach(node_id):  # Runs geth --attach against a given node
-    print "Attaching... TODO"
+    print "Attaching... "
+    ethCmd = "geth attach ipc:"
+    if node_id > 0:  # Then this is not the default node
+        ethCmd += \
+                os.path.join(testnetConf.nonDefaultRootDir,
+                             str(node_id),
+                             "geth.ipc")
+    else:
+        ethCmd += \
+                os.path.join(testnetConf.defaultDataDir,
+                             "geth.ipc")
+    print "Cmd to run: " + ethCmd
+    subprocess.call(ethCmd.split(' '))
 
 
+# TODO Set up miner to run when transaction pending...
 def mine(stopStart, node_id, cores):  # Starts a miner at a node
     # See https://gist.github.com/makevoid/701d516182e38658f5d0 for loading
     #   Javascript that will start mining if transactions are found...
     print "Mining... TODO"
+    print "To mine, use: testnet.py --attach [node to mine] " + \
+          "> miner.start(1) / > miner.stop(1)"
 
 
 def clean(node_id):  # Removes a given node TODO: handle static nodes
@@ -481,7 +510,7 @@ def cleanAll():  # Removes all node data in the cluster
     print "Deleting " + testnetConf.defaultDataDir
     shutil.rmtree(testnetConf.defaultDataDir)
 
-    # Finally, delete the static-nodes json file as it's invalid nowos.path.join(confDir, testnetConf.staticNodes)
+    # Finally, delete the static-nodes json file as it's invalid now
     print "Deleting " + os.path.join(confDir, testnetConf.staticNodes)
     os.remove(os.path.join(confDir, testnetConf.staticNodes))
 
@@ -514,7 +543,7 @@ def handleInput():  # Handles the commandline input
         elif args[1] == "--addacc":
             if len(args) == 3:
                 init()  # Should be all set up at this point
-                addacc(args[2])
+                addAcc(args[2])
             else:
                 print "Correct usage: python testnet.py --addacc [nodeID]."
         elif args[1] == "--unlockacc":
@@ -540,6 +569,7 @@ def handleInput():  # Handles the commandline input
             stopAll()
         elif args[1] == "--attach":
             if len(args) == 3:
+                init()
                 attach(args[2])
             else:
                 print "Correct usage: python testnet.py --attach [nodeID]."
