@@ -32,6 +32,7 @@ The @TestnetConf object encapsulates the data in the testnet-config.json file.
   This will be loaded at process start through the init() function, below.
 The following values will be be present in the file.
     The defaults here will be overwritten if the file exists:
+  client - the client used (defaults to Geth the Go client)
   ipAddress - the IP address used for the nodes (defaults to 127.0.0.1)
   networkID - the ID of the private network created
   nodeIdentity - the identity that is displayed for the network
@@ -109,7 +110,7 @@ confDir = "conf"  # The config directory - as a global
 testnetConf = TestnetConf()  # TestnetConf object
 
 
-def DEBUG():  # Util - Checks the verbosity
+def DEBUG():  # Util - Checks the verbosity TODO: change to use a logger
     if testnetConf.verbosity > 4:
         return True
     else:
@@ -233,7 +234,7 @@ def installSteps():  # Instructions on how to install Ethereum for specific OS
         print "     Sorry, check the Ethereum docs for your Operating system"
 
 
-# TODO: handle on screen messages
+# TODO: handle on screen messages and platform independence
 def checkEthereum():  # Checks whether Ethereum is installed
     print "Checking whether Ethereum (Geth) is installed..."
     # TODO Make platform independent
@@ -272,8 +273,18 @@ def createEthCmd(node_id):  # Creates a viable cmd to create / start a node
              " --verbosity " + str(testnetConf.verbosity) + \
              " --nodiscover"
     if node_id > 0:  # Then this is not the default node
-            ethCmd += " --datadir " + \
-                    os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
+        ethCmd += " --datadir " + \
+                  os.path.join(testnetConf.nonDefaultRootDir, str(node_id)) + \
+                  " --logfile \"" + \
+                  os.path.join(testnetConf.nonDefaultRootDir,
+                               str(node_id),
+                               "eth.log") + \
+                  "\""
+    else:
+        ethCmd += " --logfile \"" + \
+                  os.path.join(testnetConf.defaultDataDir, "eth.log") + \
+                  "\""
+    print ethCmd
     return ethCmd
 
 
@@ -289,17 +300,33 @@ def initNode(ethCmd):  # From Geth 1.4 --genesis is deprecated in favour of init
     stdout_value, stderr_value = proc.communicate()
 
 
+def createDataDir(node_id):
+    if int(node_id) == 0:
+        log = open(os.path.join(testnetConf.nonDefaultRootDir,
+                                str(node_id),
+                                "eth.log"), "w")
+        log.write(" ")
+        log.close()
+    else:  # default datadir
+        log = open(os.path.join(testnetConf.defaultDataDir, "eth.log"), "w")
+        log.write(" ")
+        log.close()
+
+
 def create():  # Creates a clustered set of nodes
     print "Creating..."
     global enodes
     for node_id in range(0, testnetConf.nodeCount):
         ethCmd = createEthCmd(node_id)
         # First set up the node using the genesis block
-        initNode(ethCmd)
+        # This is required for geth 1.4.0
+        # initNode(ethCmd)
 
         # Now lookup the created node enode URL
+        createDataDir(node_id)
         ethCmd += \
-            " js " + os.path.join(confDir, "enode_lookup.js")  
+            "  --genesis " + os.path.join(confDir, "genesis_block.json") + \
+            " js " + os.path.join(confDir, "enode_lookup.js")
 
         # Call the command and handle the response
         print "Getting enode URL for nodeID: " + str(node_id)
@@ -482,13 +509,20 @@ def attach(node_id):  # Runs geth --attach against a given node
     subprocess.call(ethCmd.split(' '))
 
 
-# TODO Set up miner to run when transaction pending...
-def mine(stopStart, node_id, cores):  # Starts a miner at a node
+# Set up miner to run when transaction pending...
+def mine(node_id):  # Starts a miner at a node
     # See https://gist.github.com/makevoid/701d516182e38658f5d0 for loading
     #   Javascript that will start mining if transactions are found...
-    print "Mining... TODO"
-    print "To mine, use: testnet.py --attach [node to mine] " + \
-          "> miner.start(1) / > miner.stop(1)"
+    print "Mining..."
+    ethCmd = createEthCmd(node_id)
+
+    ethCmd += \
+        " js " + os.path.join(confDir, "geth_mine.js")
+    # Run...
+    ethCmd = ethCmd.split(' ')  # Create an array to pass the arguments nicely
+    p = multiprocessing.Process(target=startEthAsSub, args=(node_id, ethCmd,))
+    p.start()
+    p.join()
 
 
 def clean(node_id):  # Removes a given node TODO: handle static nodes
@@ -510,9 +544,10 @@ def cleanAll():  # Removes all node data in the cluster
     print "Deleting " + testnetConf.defaultDataDir
     shutil.rmtree(testnetConf.defaultDataDir)
 
-    # Finally, delete the static-nodes json file as it's invalid now
     print "Deleting " + os.path.join(confDir, testnetConf.staticNodes)
     os.remove(os.path.join(confDir, testnetConf.staticNodes))
+
+    print "TODO: Delete the ethash directory if any mining has occurred"
 
 
 def usage():  # Help / Usage - just prints out to console
@@ -574,11 +609,11 @@ def handleInput():  # Handles the commandline input
             else:
                 print "Correct usage: python testnet.py --attach [nodeID]."
         elif args[1] == "--mine":
-            if len(args) == 5:
-                mine(args[2], args[3], args[4])
+            if len(args) == 3:
+                init()
+                mine(args[2])
             else:
-                print "Correct usage: python testnet.py --mine [start or stop]"
-                " [nodeID] [the number of cores to be used]."
+                print "Correct usage: python testnet.py --mine [nodeID]."
         elif args[1] == "--clean":
             if len(args) == 3:
                 clean(args[2])
