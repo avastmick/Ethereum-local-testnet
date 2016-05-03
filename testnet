@@ -4,7 +4,7 @@
 # See https://github.com/avastmick/ethereum-local-testnet/wiki
 # This script will be in-step with the cross-platform implpementation (Python) as it is useful for
 # usage within containers and avoids further installation on an image of software
-# 
+#
 # TODO: implement mining and unlocking of accounts
 
 # Logging level: 1, none, 6 debug
@@ -133,11 +133,6 @@ function addToStaticNodes {
 }
 # Create [num_nodes]
 function create {
-    echo "CREATE CURRENTLY BROKEN DUE TO DEPRECATED USE OF '--genesis' flag in Geth 1.4.x"
-    echo "Using the Python version instead"
-    python testnet.py --create
-    exit
-
     echo Checking that Ethereum is installed
     checkEthereum
     configure
