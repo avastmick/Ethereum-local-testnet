@@ -1,4 +1,4 @@
-FROM avastmick/general-dev
+FROM base-dev
 
 MAINTAINER avastmick <avastmick.outlook.com>
 
@@ -8,7 +8,7 @@ RUN apt-get update && \
     apt-get upgrade -q -y && \
     apt-get dist-upgrade -q -y && \
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 923F6CA9 && \
-    echo "deb http://ppa.launchpad.net/ethereum/ethereum-dev/ubuntu xenial main" | tee -a /etc/apt/sources.list.d/ethereum.list && \
+    echo "deb http://ppa.launchpad.net/ethereum/ethereum/ubuntu xenial main" | tee -a /etc/apt/sources.list.d/ethereum.list && \
     apt-get update && \
     apt-get install -q -y geth && \
     apt-get update && \
@@ -16,7 +16,4 @@ RUN apt-get update && \
     # Now clone the ethereum-local-testnet repo
     git clone https://github.com/avastmick/ethereum-local-testnet.git && \
     # And run testnet
-    cd ethereum-local-testnet && \
-    ./testnet --create
-
-ENTRYPOINT /usr/local/repos/ethereum-local-testnet
+    cd ethereum-local-testnet

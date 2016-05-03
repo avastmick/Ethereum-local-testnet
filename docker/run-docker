@@ -1,2 +1,4 @@
 #!/bin/bash
-docker run --name geth-box -v $(pwd):/usr/local/repos/ethereum-local-testnet general-dev:geth
+# docker run -i --name geth-box -v $(pwd):/usr/local/repos/ethereum-local-testnet eth-dev
+
+docker run -i -t --name geth-box eth-dev /bin/bash
