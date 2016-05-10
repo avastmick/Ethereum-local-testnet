@@ -4,6 +4,7 @@ MAINTAINER avastmick <avastmick.outlook.com>
 
 WORKDIR /usr/local/repos/
 
+# Install Geth and clone this repo and run testnet create
 RUN apt-get update && \
     apt-get upgrade -q -y && \
     apt-get dist-upgrade -q -y && \
@@ -13,7 +14,9 @@ RUN apt-get update && \
     apt-get install -q -y geth && \
     apt-get update && \
     apt-get install -q -y git && \
+    apt-get clean
+
     # Now clone the ethereum-local-testnet repo
-    git clone https://github.com/avastmick/ethereum-local-testnet.git && \
+RUN git clone https://github.com/avastmick/ethereum-local-testnet.git && \
     # And run testnet
     cd ethereum-local-testnet
