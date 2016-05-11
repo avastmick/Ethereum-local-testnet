@@ -301,7 +301,7 @@ def initNode(ethCmd):  # From Geth 1.4 --genesis is deprecated in favour of init
 
 
 def createDataDir(node_id):
-    if int(node_id) == 0:
+    if int(node_id) != 0:
         log = open(os.path.join(testnetConf.nonDefaultRootDir,
                                 str(node_id),
                                 "eth.log"), "w")
@@ -415,7 +415,7 @@ def getlines(fd):  # Util handler to manage STDERR output, for debugging
         line += c
         if c == '\n':
             yield str(line)
-            del line[:]  
+            del line[:]
 
 
 def startEthAsSub(node_id, cmd):  # Spawns a subprocess - pipe to log file TODO
