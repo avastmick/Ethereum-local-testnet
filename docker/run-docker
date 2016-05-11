@@ -1,4 +1,3 @@
 #!/bin/bash
-# docker run -i --name geth-box -v $(pwd):/usr/local/repos/ethereum-local-testnet eth-dev
 
 docker run --name local-testnet -i -t avastmick/ethereum-local-testnet /bin/bash
