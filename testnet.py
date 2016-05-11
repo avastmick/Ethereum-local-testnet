@@ -302,12 +302,18 @@ def initNode(ethCmd):  # From Geth 1.4 --genesis is deprecated in favour of init
 
 def createDataDir(node_id):
     if int(node_id) != 0:
+        if not os.path.exists(os.path.join(testnetConf.nonDefaultRootDir,
+                                str(node_id)):
+            os.makedirs(os.path.join(testnetConf.nonDefaultRootDir,
+                                    str(node_id))
         log = open(os.path.join(testnetConf.nonDefaultRootDir,
                                 str(node_id),
                                 "eth.log"), "w")
         log.write(" ")
         log.close()
     else:  # default datadir
+        if not os.path.exists(testnetConf.defaultDataDir):
+            os.makedirs(testnetConf.defaultDataDir)
         log = open(os.path.join(testnetConf.defaultDataDir, "eth.log"), "w")
         log.write(" ")
         log.close()
