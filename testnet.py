@@ -238,7 +238,7 @@ def installSteps():  # Instructions on how to install Ethereum for specific OS
 def checkEthereum():  # Checks whether Ethereum is installed
     print "Checking whether Ethereum (Geth) is installed..."
     # TODO Make platform independent
-    retcode = os.system("geth --help >/dev/null 2>&1")
+    retcode = os.system("geth version >/dev/null 2>&1")
     if retcode != 0:
         print " ...no current installation of Ethereum:"
         installSteps()
