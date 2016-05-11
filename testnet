@@ -254,8 +254,11 @@ function attach {
     if [ $node == 1 ]; then
         set_default_datadir
         _datadir=$data_dir
-    else
+    elif [ $node > 1]; then
         _datadir=$datadir_root/$1
+    else
+        echo "Nodes are 1 (default node) to " + $num_nodes
+        exit
     fi
     echo attaching to ipc endpoint $_datadir/geth.ipc
     geth attach ipc:$_datadir/geth.ipc
