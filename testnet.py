@@ -238,7 +238,7 @@ def installSteps():  # Instructions on how to install Ethereum for specific OS
 def checkEthereum():  # Checks whether Ethereum is installed
     print "Checking whether Ethereum (Geth) is installed..."
     # TODO Make platform independent
-    retcode = os.system("geth --help >/dev/null 2>&1")
+    retcode = os.system("geth version >/dev/null 2>&1")
     if retcode != 0:
         print " ...no current installation of Ethereum:"
         installSteps()
@@ -301,13 +301,15 @@ def initNode(ethCmd):  # From Geth 1.4 --genesis is deprecated in favour of init
 
 
 def createDataDir(node_id):
-    if int(node_id) == 0:
-        log = open(os.path.join(testnetConf.nonDefaultRootDir,
-                                str(node_id),
-                                "eth.log"), "w")
+    if int(node_id) != 0:
+        if not os.path.exists(os.path.join(testnetConf.nonDefaultRootDir, str(node_id))):
+            os.makedirs(os.path.join(testnetConf.nonDefaultRootDir, str(node_id)))
+        log = open(os.path.join(testnetConf.nonDefaultRootDir, str(node_id), "eth.log"), "w")
         log.write(" ")
         log.close()
     else:  # default datadir
+        if not os.path.exists(testnetConf.defaultDataDir):
+            os.makedirs(testnetConf.defaultDataDir)
         log = open(os.path.join(testnetConf.defaultDataDir, "eth.log"), "w")
         log.write(" ")
         log.close()
@@ -415,7 +417,7 @@ def getlines(fd):  # Util handler to manage STDERR output, for debugging
         line += c
         if c == '\n':
             yield str(line)
-            del line[:]  
+            del line[:]
 
 
 def startEthAsSub(node_id, cmd):  # Spawns a subprocess - pipe to log file TODO
@@ -496,7 +498,7 @@ def stopAll():  # Stops all nodes in the cluster
 def attach(node_id):  # Runs geth --attach against a given node
     print "Attaching... "
     ethCmd = "geth attach ipc:"
-    if int(node_id) > 0:  # Then this is not the default node
+    if int(node_id) != 0:  # Then this is not the default node
         ethCmd += \
                 os.path.join(testnetConf.nonDefaultRootDir,
                              str(node_id),
