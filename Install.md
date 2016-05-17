@@ -1,5 +1,7 @@
 # Create a local testnet via manual-shmanual and point scripts
 
+The following is really the specification.
+
 ITERATION ONE: To step through the process and learn how it works, follow the instructions here.
 
 ## Node 1 - An Ubuntu guest VM (server)
@@ -50,6 +52,8 @@ echo 'testpwd-01' > conf/testnet-pwd
 ````
 ## Create scripts to do the creation of the testnet
 ### Create the local testnet
+
+_NOTE:_ the usage of ``--genesis`` was deprecated in Geth, version 1.4+. You should look at using ``init`` instead
 ````
 echo 'geth --genesis ./genesis/genesis_block.json --networkid 1973 --port 30801 --rpcport 8901 --nodiscover 2>> eth.log &' > create_local_testnet && chmod u+x create_local_testnet
 ````

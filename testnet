@@ -1,39 +1,9 @@
 #!/bin/bash
 
-# Sets up a local private Ethereum testnet - this should be good for any unix install with bash
-# See https://github.com/avastmick/ethereum-local-testnet/wiki
-# This script will be in-step with the cross-platform implpementation (Python) as it is useful for
-# usage within containers and avoids further installation on an image of software
+# Sets up a local private Ethereum testnet - now just a simple wrapper around testnet.py
 #
-# TODO: implement mining and unlocking of accounts
-
-# Logging level: 1, none, 6 debug
-verbosity=6
-# Config variables - change these if you are hung up on ports etc
-# what is the IP Address
-ip_addr=127.0.0.1
-# networkid - DON'T CHANGE to values < 10 for safety
-networkid=9191
-# Identity of the node
-identity=private_
-# default_node - use the default installation path, affects the use of --datadir flag in geth
-default_node=true
-# Creating num_nodes - default 5
-num_nodes=5
-# Eth port - default is 30303
-eth_port=3080
-# RPC port - default is 8545
-rpc_port=890
-# default data_dir
-default_data_dir=""
-# non-default data_dir root
-datadir_root="/tmp/"$networkid
-# static-nodes.json
-static_nodes="/static-nodes.json"
-# conf
-conf=./conf
-# Create a master, generic password - note this a private, testnet, so don't sweat too much here
-password=testpwd
+# See https://github.com/avastmick/ethereum-local-testnet/wiki
+#
 
 # Help
 function usage {
@@ -54,314 +24,35 @@ function usage {
     echo    --cleanall : Cleans the whole shebang. All nodes, back to the user account
     echo    --help -h : This message
 }
-# Install Ethereum
-function install-steps {
-    if [[ $OSTYPE == darwin* ]]; then
-        echo You\'re on a Mac, you can install using:
-        echo "brew tap ethereum/ethereum &&"
-        echo "brew install ethereum"
-    elif [[ $OSTYPE == linux-gnu ]]; then
-        echo You\'re on a Ubuntu variant, you can install using:
-        echo "  sudo add-apt-repository ppa:ethereum/ethereum-qt &&"
-        echo "  sudo add-apt-repository ppa:ethereum/ethereum &&"
-        echo "  sudo add-apt-repository ppa:ethereum/ethereum-dev &&"
-        echo "  sudo apt-get update &&"
-        echo "  sudo apt-get install cpp-ethereum &&"
-        echo "  sudo apt-get install ethereum"
-    else # This is not supported
-        echo Sorry, check the Ethereum docs for your Operating system
-    fi
-    exit
-}
-function checkEthereum {
-
-    if [ hash geth >/dev/null 2>&1 ]; then
-        echo No current installation of Ethereum
-        install-steps
-    else
-        echo Already installed Ethereum, nice! Proceeding...
-    fi
-}
-# Configure
-function configure {
-    # Create the required directories and files if not there
-    if [ "$(ls -A $conf 2>/dev/null)" ]; then
-        echo Conf dir $conf already exists, not creating
-    else
-        echo Creating the local conf directory and files to configure node
-        mkdir $conf
-        genesis_block='{
-            "nonce": "0x0000000000000042",
-            "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "difficulty": "0x4000",
-            "alloc": {},
-            "coinbase": "0x0000000000000000000000000000000000000000",
-            "timestamp": "0x00",
-            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "extraData": "Custom Ethereum Genesis Block for initiating a local test net",
-            "gasLimit": "0xffffffff"
-        }'
-        echo $genesis_block > $conf/genesis_block.json
-        echo $password > conf/testnet-pwd
-    fi
-}
-# Set the default datadir according to OS
-function set_default_datadir {
-    if [[ $OSTYPE == darwin* ]]; then
-        data_dir="$HOME/Library/Ethereum"
-    elif [[ $OSTYPE == linux-gnu ]]; then
-        data_dir="$HOME/.ethereum"
-    else # This is not supported
-        echo Sorry not supported, check the Ethereum docs for your Operating system
-        exit
-    fi
-}
-# addEnodeToNode [enodeURL]
-function addToStaticNodes {
-        static_nodes_new="conf/$static_nodes"
-
-        if [ $1 == 1 ]; then
-            echo Starting new file static_nodes file with $num_nodes nodes in cluster
-            echo "[" >> $static_nodes_new
-        fi
-        if [ $1 != $num_nodes ]; then
-            echo $2"," >> $static_nodes_new
-        else
-            echo $2 >> $static_nodes_new
-            echo "]" >> $static_nodes_new
-        fi
-}
-# Create [num_nodes]
-function create {
-    echo Checking that Ethereum is installed
-    checkEthereum
-    configure
-    if [ -n "$1" ]; then
-        num_nodes=$1 # Else go with default
-    fi
-    for ((i=1;i<=num_nodes;++i)); do
-        echo Creating $i of $num_nodes nodes for cluster
-        _datadir=""
-        if [ $i == "1" ]; then
-            set_default_datadir
-            _datadir=$data_dir
-            mkdir $_datadir
-        else
-            _datadir=$datadir_root/$i
-            mkdir -p $_datadir
-        fi
-        echo Creating node configured as:
-        echo "   datadir $_datadir"
-        echo "   network ID: $networkid,"
-        echo "   with identifier: $identity$i,"
-        echo "   with local ID: $i,"
-        echo "   with eth port: $eth_port$i"
-        echo "   and rpc port: $rpc_port$i"
-
-        gethcmd="geth --genesis $conf/genesis_block.json --datadir $_datadir --networkid $networkid --identity $identity$i --port $eth_port$i --rpcport $rpc_port$i --nodiscover --verbosity $verbosity"
-        createcmd="$gethcmd js <(echo 'console.log(admin.nodeInfo.enode); exit();') "
-        # Add this get the enode URL to add to the  static_nodes.json file
-        enode="$(bash -c "$createcmd" 2> $_datadir/eth.log)"
-        # Trim the query string
-        enodeurl=$( echo $enode | perl -pe "s/\[\:\:\]/$ip_addr/g" | perl -pe "s/^/\"/; s/\s*$/\"/;" )
-        addToStaticNodes $i $enodeurl
-
-        echo Setting coinbase to node
-        addacc $i 2>/dev/null
-
-    done
-    # Now start them up
-    for ((i=1;i<=num_nodes;++i)); do
-        start $i
-    done
-}
-# Start node
-function start {
-    _datadir=""
-    if [ $1 == 1 ]; then
-        set_default_datadir
-        _datadir=$data_dir
-    else
-        _datadir=$datadir_root/$1
-    fi
-    # copy over the static_nodes file
-    cp $static_nodes_new $_datadir/$static_nodes
-    echo Starting local testnet node with local ID: $1
-    geth --datadir $_datadir \
-         --networkid $networkid \
-         --identity $identity$1 \
-         --port $eth_port$1 \
-         --rpcport $rpc_port$1 \
-         --nodiscover \
-         --verbosity $verbosity \
-         2>> $_datadir/eth.log & echo $! >> $_datadir/pid_file;
-    echo Done.
-
-    if [ -n "$(more $_datadir/pid_file)" ]; then
-        echo Geth should now be running with pid: $(more $_datadir/pid_file). See $_datadir/eth.log for details
-    else
-        echo Geth failed to start. Check errors and or $_datadir/eth.log for details
-    fi
-}
-# Start all
-function stopall {
-    datadir_root="/tmp/$networkid"
-
-    for node in $(ls $datadir_root)
-    do
-        start $node
-    done
-    # Start default
-    start 1
-}
-# Stop node
-function stop {
-    _datadir=""
-    if [ $1 == "1" ]; then
-        set_default_datadir
-        _datadir=$data_dir
-    else
-        _datadir=$datadir_root/$1
-    fi
-    echo Stopping node $1 at $_datadir
-    if [ -n "$(more $_datadir/pid_file)" ]; then
-        kill -HUP $(more $_datadir/pid_file)
-        # clean up the pid_file
-        rm $_datadir/pid_file
-        echo ...done.
-    else
-        echo Nothing to stop - check whether geth is actually running
-    fi
-}
-# Stop all
-function stopall {
-    datadir_root="/tmp/$networkid"
-
-    for node in $(ls $datadir_root)
-    do
-        stop $node
-    done
-    # Stop default
-    stop 1
-}
-# Attach
-function attach {
-    node=$1
-    if [ -z "$1" ]; then
-        node="1"
-    fi
-    _datadir=""
-    if [ $node == 1 ]; then
-        set_default_datadir
-        _datadir=$data_dir
-    elif [ $node > 1]; then
-        _datadir=$datadir_root/$1
-    else
-        echo "Nodes are 1 (default node) to " + $num_nodes
-        exit
-    fi
-    echo attaching to ipc endpoint $_datadir/geth.ipc
-    geth attach ipc:$_datadir/geth.ipc
-}
-# Add account
-function addacc {
-    _datadir=""
-    if [ $1 == 1 ]; then
-        set_default_datadir
-        _datadir=$data_dir
-    else
-        _datadir=$datadir_root/$1
-    fi
-    echo Adding account...
-    geth --datadir $_datadir --networkid $networkid --port $eth_port --rpcport $rpc_port --password $conf/testnet-pwd account new
-}
-# Starts the miner on the designated node
-function startmining {
-    echo starting the miner on this node: $node_id on $networkid: $eth_port
-    echo NOT IMPLEMENTED
-}
-# Stop the miner on the designated node
-function stopmining {
-    echo stopping the miner on this node: $node_id on $networkid: $eth_port
-    echo NOT IMPLEMENTED
-}
-# Unlock account
-function unlockacc {
-    if [ -z "$2" ]; then
-        echo No account passed in, exiting;
-        exit
-    else
-        echo unlocking $2
-        echo NOT IMPLEMENTED
-        # May cycle here - stop the current version of geth, unlock, restart... blurgh...
-        geth --password ./conf/testnet-pwd --unlock $2  --networkid $networkid --port $eth_port --rpcport $rpc_port
-    fi
-}
-# Clean
-function clean {
-    _datadir=""
-    if [ $1 == 1 ]; then
-        set_default_datadir
-        _datadir=$data_dir
-    else
-        _datadir=$datadir_root/$1
-    fi
-    echo Cleaning $_datadir...
-    rm -rf $_datadir
-    echo ...done.
-}
-# Clean all - complete removal of cluster
-function cleanall {
-    echo Complete clean...
-    if [ "$(ls -A $datadir_root 2>/dev/null)" ]; then
-        echo Cleaning /tmp/$networkid
-        rm -rf /tmp/$networkid
-    fi
-
-    set_default_datadir
-    if [ "$(ls -A $data_dir 2>/dev/null)" ]; then
-        echo Cleaning $data_dir
-        rm -rf $data_dir
-    fi
-
-    if [ "$(ls -A "$HOME/.ethash" 2>/dev/null)" ]; then
-        echo Cleaning "$HOME/.ethash"
-        rm -rf "$HOME/.ethash"
-    fi
-
-    rm $conf/static-nodes.json
-
-    echo ...done.
-}
 
 if [ -z "$1" ]; then
     usage
     exit
 fi
 if [[ "$1" == "--create" ]]; then
-    create $2;
+    python testnet.py --create;
 elif [[ "$1" == "--addacc" ]]; then
-    addacc $2;
+    python testnet.py --addacc $2;
 elif [[ "$1" == "--unlockacc" ]]; then
-    unlockacc $2 $3;
+    python testnet.py --unlockacc $2 $3;
 elif [[ "$1" == "--start" ]]; then
-    start $2;
+    python testnet.py --start $2;
 elif [[ "$1" == "--startall" ]]; then
-    startall;
+    python testnet.py --startall;
 elif [[ "$1" == "--stop" ]]; then
-    stop $2;
+    python testnet.py --stop $2;
 elif [[ "$1" == "--stopall" ]]; then
-    stopall;
+    python testnet.py --stopall;
 elif [[ "$1" == "--attach" ]]; then
-    attach $2;
+    python testnet.py --attach $2;
 elif [[ "$1" == "--minestart" ]]; then
-    startmining $2 $3;
+    python testnet.py --startmining $2 $3;
 elif [[ "$1" == "--minestop" ]]; then
-    stopmining $2 $3
+    python testnet.py --stopmining $2 $3
 elif [[ "$1" == "--clean" ]]; then
-    clean $2;
+    python testnet.py --clean $2;
 elif [[ "$1" == "--cleanall" ]]; then
-    cleanall;
+    python testnet.py --cleanall;
 elif [[ "$1" == "--help" ]]; then
     usage;
 elif [[ "$1" == "-h" ]]; then

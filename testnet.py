@@ -93,7 +93,7 @@ class TestnetConf:
                                   '"extraData": "Custom Ethereum Genesis Block'
                                   ' for initiating a local test net", '
                                   '"gasLimit": "0xffffffff" }')
-            self.enode_lookup = "console.log(admin.nodeInfo.enode); exit();"
+            self.enode_lookup = "console.log(admin.nodeInfo.enode);"
 
     def __str__(self):
         objStr = "Testnet Config: ipAddress: %s networkID: %s nodeIdentity: " \
@@ -193,10 +193,10 @@ def init():  # Initialises config TODO: handle on screen messages
     if ostype == "Darwin":
         testnetConf.defaultDataDir = \
             os.path.expanduser("~/Library/Ethereum")
-        testnetConf.nonDefaultRootDir = "/tmp/"+testnetConf.networkID
+        testnetConf.nonDefaultRootDir = os.path.expanduser("~/tmp/"+testnetConf.networkID)
     elif ostype == "Linux":
         testnetConf.defaultDataDir = os.path.expanduser("~/.ethereum")
-        testnetConf.nonDefaultRootDir = "/tmp/"+testnetConf.networkID
+        testnetConf.nonDefaultRootDir = os.path.expanduser("~/tmp/"+testnetConf.networkID)
     elif ostype == "Windows":
         testnetConf.defaultDataDir = \
             os.path.expanduser("\\~\\AppData\\Roaming\\Ethereum")
@@ -274,16 +274,7 @@ def createEthCmd(node_id):  # Creates a viable cmd to create / start a node
              " --nodiscover"
     if node_id > 0:  # Then this is not the default node
         ethCmd += " --datadir " + \
-                  os.path.join(testnetConf.nonDefaultRootDir, str(node_id)) + \
-                  " --logfile \"" + \
-                  os.path.join(testnetConf.nonDefaultRootDir,
-                               str(node_id),
-                               "eth.log") + \
-                  "\""
-    else:
-        ethCmd += " --logfile \"" + \
-                  os.path.join(testnetConf.defaultDataDir, "eth.log") + \
-                  "\""
+                  os.path.join(testnetConf.nonDefaultRootDir, str(node_id))
     print ethCmd
     return ethCmd
 
@@ -300,34 +291,17 @@ def initNode(ethCmd):  # From Geth 1.4 --genesis is deprecated in favour of init
     stdout_value, stderr_value = proc.communicate()
 
 
-def createDataDir(node_id):
-    if int(node_id) != 0:
-        if not os.path.exists(os.path.join(testnetConf.nonDefaultRootDir, str(node_id))):
-            os.makedirs(os.path.join(testnetConf.nonDefaultRootDir, str(node_id)))
-        log = open(os.path.join(testnetConf.nonDefaultRootDir, str(node_id), "eth.log"), "w")
-        log.write(" ")
-        log.close()
-    else:  # default datadir
-        if not os.path.exists(testnetConf.defaultDataDir):
-            os.makedirs(testnetConf.defaultDataDir)
-        log = open(os.path.join(testnetConf.defaultDataDir, "eth.log"), "w")
-        log.write(" ")
-        log.close()
-
-
 def create():  # Creates a clustered set of nodes
     print "Creating..."
     global enodes
     for node_id in range(0, testnetConf.nodeCount):
         ethCmd = createEthCmd(node_id)
-        # First set up the node using the genesis block
-        # This is required for geth 1.4.0
-        # initNode(ethCmd)
+        # First init the node using the genesis block
+        # This is required from geth 1.4.0+
+        initNode(ethCmd)
 
         # Now lookup the created node enode URL
-        createDataDir(node_id)
         ethCmd += \
-            "  --genesis " + os.path.join(confDir, "genesis_block.json") + \
             " js " + os.path.join(confDir, "enode_lookup.js")
 
         # Call the command and handle the response
@@ -440,7 +414,7 @@ def startEthAsSub(node_id, cmd):  # Spawns a subprocess - pipe to log file TODO
 
 def start(node_id):  # Starts up a specified node
     print "Starting... " + str(node_id)
-    ethCmd = ethCmd = createEthCmd(node_id)
+    ethCmd = createEthCmd(node_id)
     if node_id > 0:  # Copy over static nodes
         shutil.copy(os.path.join(confDir, testnetConf.staticNodes),
                     os.path.join(testnetConf.nonDefaultRootDir,
@@ -528,28 +502,41 @@ def mine(node_id):  # Starts a miner at a node
 
 
 def clean(node_id):  # Removes a given node TODO: handle static nodes
-    print "Cleaning node ID: "+node_id
+    print "Cleaning node ID: "+node_id+"..."
     if int(node_id) > 0:  # Then this is NOT the default node
         nodeDir = os.path.join(testnetConf.nonDefaultRootDir, node_id)
-        print "Deleting " + nodeDir
-        shutil.rmtree(nodeDir)
+        if os.path.exists(nodeDir):
+            print "Deleting " + nodeDir
+            shutil.rmtree(nodeDir)
     else:  # This is the default
-        print "Deleting " + testnetConf.defaultDataDir
-        shutil.rmtree(testnetConf.defaultDataDir)
+        if os.path.exists(testnetConf.defaultDataDir):
+            print "Deleting " + testnetConf.defaultDataDir
+            shutil.rmtree(testnetConf.defaultDataDir)
+    print "...done."
 
 
 def cleanAll():  # Removes all node data in the cluster
     print "Cleaning all..."
-    print "Deleting " + testnetConf.nonDefaultRootDir
-    shutil.rmtree(testnetConf.nonDefaultRootDir)
+    if os.path.exists(testnetConf.nonDefaultRootDir):
+        print "Deleting " + testnetConf.nonDefaultRootDir
+        shutil.rmtree(testnetConf.nonDefaultRootDir)
 
-    print "Deleting " + testnetConf.defaultDataDir
-    shutil.rmtree(testnetConf.defaultDataDir)
+    if os.path.exists(testnetConf.defaultDataDir):
+        print "Deleting " + testnetConf.defaultDataDir
+        shutil.rmtree(testnetConf.defaultDataDir)
 
-    print "Deleting " + os.path.join(confDir, testnetConf.staticNodes)
-    os.remove(os.path.join(confDir, testnetConf.staticNodes))
+    # Remove staticNodes.json and enode_lookup.js
+    if os.path.isfile(os.path.join(confDir, testnetConf.staticNodes)):
+        print "Deleting " + os.path.join(confDir, testnetConf.staticNodes)
+        os.remove(os.path.join(confDir, testnetConf.staticNodes))
+    if os.path.isfile(os.path.join(confDir, "enode_lookup.js")):
+        os.remove(os.path.join(confDir, "enode_lookup.js"))
 
-    print "TODO: Delete the ethash directory if any mining has occurred"
+    if not os.path.exists(testnetConf.defaultDataDir):
+        print "TODO: eleting the ethash directory if any mining has occurred"
+
+    print "...done."
+
 
 
 def usage():  # Help / Usage - just prints out to console

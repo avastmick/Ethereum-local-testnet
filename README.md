@@ -20,7 +20,7 @@ This creates a cluster of nodes with one at the default Geth location to allow t
 5. A continuous integration environment to speed up and make safe contract development.
 
 Eventually, this will grow to enable a typical 3-stage development cycle:
-1. Code development with local testing against a local testnet (this);
+1. Code development with local testing cycle against a local testnet (this);
 2. Promotion to UAT and testing at scale on the public testnet (Morden);
 3. Production - release onto the live network (1)
 
@@ -40,7 +40,7 @@ Three warnings:
 
 Simply install Geth and follow the above.
 
-If you start it up, you can then start the [Ethereum Wallet](https://github.com/ethereum/mist) app and it will automagically attach to the testnet. If you mine (``miner.start(1)``) on the defaulut node you will see your "Coin Base" account accruing Ether!
+If you start it up, you can then start the [Ethereum Wallet](https://github.com/ethereum/mist) app and it will automagically attach to the testnet. If you mine (``miner.start(1)``) on the default node you will see your "Coin Base" account accruing Ether!
 
 Or, run the [Docker](https://hub.docker.com/r/avastmick/ethereum-local-testnet), which gives you an interactive shell, just run ``./testnet --create`` from there and do your thing on the Geth CLI.
 
@@ -48,12 +48,39 @@ To better understand, I suggest follow the manual steps in the [Install](Install
 
 If you want to just stop manual configurations and need to bootstrap your development environment for quickly getting going clone the repo and run the ``testnet`` bash script. The script should be fully portable on any unix based system with the bash shell available.
 
-# Next steps
+## OR, use the Docker image
 
-1. I'll add something more flexible than a blunt instrument bash script, using python and later rust (cos I can);
-2. Get it work with other client, firstly ``eth`` the CPP client, then [Ethcore](https://github.com/ethcore/parity) ``parity``;
-3. A simple UI to manage or better integration with the [Ethereum Wallet](https://github.com/ethereum/mist);
-4. Fix the various functional gaps and issues
+If you use docker locally (and you should it's great) you can simply run up a working environment thus:
+
+```
+docker run -p 8088:8089 -p 30801:30801 -p 8901:8901 --name local-testnet -i -t avastmick/ethereum-local-testnet /bin/bash
+```
+This maps some ports to enable host interaction and will expose the web app when done.
+
+Your Docker host will pull down the latest image at [avastmick/ethereum-local-testnet](https://hub.docker.com/r/avastmick/ethereum-local-testnet/) and then start a suitably configured container.
+
+I'll look to have two images available:
+- ``latest`` that will run off the n+1 version of Geth and
+- ``stable`` that runs off the current public version.
+
+These will map to the ``development`` and ``master`` branches in this repo.
+
+### Not got Docker?
+
+Installation is straightforward enough... on [Linux](https://docs.docker.com/engine/installation/linux/ubuntulinux/)...
+
+```
+$ curl -sSL https://get.docker.com/ | sh
+$ # Add your user to docker group so you can avoid using root (sudo)
+$ sudo usermod -aG docker [your_user]
+$ _sudo reboot_
+$ _sudo service docker start_
+$ # Verify this works:
+$ docker run hello-world
+$ # Drink a beer
+````
+If you insist on using Windows or OSX, then there are more hoops to jump through. These are getting better, but still more work.
+
 
 I hope it gets you to where you want to go faster than manual configuration.
 
